@@ -39,12 +39,14 @@ model Project {
   id              String        @id @default(cuid())
   userId          String?
   user            User?          @relation(fields: [userId], references:[id])
+  teamId          String?
+  team            Team?          @relation(fields: [teamId], references:[id])
   name            String
   category        String?
   description     String?
   createdAt       DateTime      @default(now())
 
-  // New “open to all industries” fields
+  // New "open to all industries" fields
   industry        String?       // e.g., "Fintech", "DevTools", "Ecommerce", "Healthcare"
   subIndustry     String?       // e.g., "Payments", "Observability", "Email Marketing"
   targetSegments  String[]      // e.g., ["SMB", "Mid-market", "Enterprise"], ["Developers"]
@@ -57,6 +59,9 @@ model Project {
   inputs          Json?
   runs            Run[]
   reports         Report[]
+  comments        Comment[]
+  activities      Activity[]
+  approvalWorkflows ApprovalWorkflow[]
 }
 
 
