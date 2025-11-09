@@ -68,14 +68,17 @@ function NavItem({ href, children }: { href: string; children: React.ReactNode }
   );
 }
 
-function Topbar() {
+function Topbar({ children }: { children?: React.ReactNode }) {
   return (
     <header className="sticky top-0 z-20 bg-white/70 backdrop-blur header-gradient border-b border-black/10">
       <div className="flex items-center justify-between px-4 h-14">
-        <div className="text-sm text-gray-600">Evidence-first competitive intel</div>
+        <div className="flex items-center gap-3">
+          {children}
+          <div className="text-sm text-gray-600">Evidence-first competitive intel</div>
+        </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <a className="btn btn-ghost" href="/projects/new">New Project</a>
+          <a className="btn btn-ghost hidden sm:block" href="/projects/new">New Project</a>
           <AuthButton />
         </div>
       </div>
