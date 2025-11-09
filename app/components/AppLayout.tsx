@@ -66,9 +66,14 @@ export function AppLayout({ children }: AppLayoutProps) {
       />
 
       {/* Global Loading Overlay */}
-      <GlobalLoadingOverlay />
-      </>
-    </LoadingProvider>
+          <GlobalLoadingOverlay />
+
+          {/* Error Notification */}
+          <ErrorNotification />
+          </>
+        </LoadingProvider>
+      </ErrorBoundary>
+    </ErrorProvider>
   );
 }
 
