@@ -38,8 +38,10 @@ export function AppLayout({ children }: AppLayoutProps) {
           <nav className="px-3 space-y-1">
             <NavItem href="/dashboard">Dashboard</NavItem>
             <NavItem href="/projects">Projects</NavItem>
+            <NavItem href="/teams">Teams</NavItem>
             <NavItem href="/runs">Runs</NavItem>
             <NavItem href="/reports">Reports</NavItem>
+            <NavItem href="/ai-insights">AI Insights</NavItem>
             <NavItem href="/jobs">Jobs</NavItem>
             <NavItem href="/settings">Settings</NavItem>
           </nav>
