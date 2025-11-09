@@ -29,6 +29,7 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
   const [drawerCites, setDrawerCites] = useState<string[]>([]);
   const [qaSummary, setQaSummary] = useState<string | null>(null);
   const [tab, setTab] = useState('Highlights');
+  const [viewMode, setViewMode] = useState<'standard' | 'interactive'>('standard');
   const tabs = ['Highlights','Competitors','Capabilities','Pricing','Integrations','Security','Deployment','GTM','Roadmap'];
   
   // Extract sections from markdown for tab filtering
