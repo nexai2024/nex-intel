@@ -564,8 +564,40 @@ export async function orchestrateRun(runId: string) {
       await appendLog(runId, 'Guardrails: All checks passed');
     }
 
-    // 8) Complete
+    // 8) Send notifications
     await setStatus(runId, 'COMPLETE', `Report ready: ${report.id}`);
+
+    // Send email notification to user
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: run.project.userId }
+      });
+
+      if (user?.email) {
+        const findings = await prisma.finding.findMany({
+          where: { runId },
+          select: { text: true, notes: true }
+        });
+
+        const emailSent = await sendReportCompletionNotification(
+          user.email,
+          user.name || 'User',
+          run.project.name,
+          runId,
+          findings
+        );
+
+        if (emailSent) {
+          await appendLog(runId, `Email notification sent to ${user.email}`);
+        } else {
+          await appendLog(runId, `Failed to send email notification`);
+        }
+      }
+    } catch (error: any) {
+      console.error(`[Orchestrator] Failed to send email notification:`, error);
+      await appendLog(runId, `Email notification failed: ${error.message}`);
+    }
+
     console.log(`[Orchestrator] Run ${runId} completed successfully`);
   } catch (error: any) {
     console.error(`[Orchestrator] Run ${runId} failed:`, error);
