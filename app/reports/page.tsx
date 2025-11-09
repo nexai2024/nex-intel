@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Breadcrumbs } from '@/app/components/Breadcrumbs';
 
 interface Report {
   id: string;
