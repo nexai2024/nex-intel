@@ -30,12 +30,16 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
   const [status, setStatus] = useState<Status | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
+  const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
+  const [loadingInsights, setLoadingInsights] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerCites, setDrawerCites] = useState<string[]>([]);
   const [qaSummary, setQaSummary] = useState<string | null>(null);
   const [tab, setTab] = useState('Highlights');
   const [viewMode, setViewMode] = useState<'standard' | 'interactive'>('standard');
-  const tabs = ['Highlights','Competitors','Capabilities','Pricing','Integrations','Security','Deployment','GTM','Roadmap'];
+  const { withLoading } = useLoading();
+  const { showError } = useError();
+  const tabs = ['Highlights','AI Insights','Competitors','Capabilities','Pricing','Integrations','Security','Deployment','GTM','Roadmap'];
   
   // Extract sections from markdown for tab filtering
   const reportSections = useMemo(() => {
