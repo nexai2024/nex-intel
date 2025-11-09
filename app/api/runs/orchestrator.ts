@@ -9,6 +9,8 @@ import { makeSearch } from '@/lib/search';
 import { extractCapabilities } from '@/lib/extract/capabilities';
 import { extractPricingV2 } from '@/lib/extract/pricing_v2';
 import { generateMarkdown } from '@/lib/report';
+import { detectSourceChanges, storeChangeDetection, checkForAlerts, scheduler } from '@/lib/monitoring';
+import { sendReportCompletionNotification } from '@/lib/notifications';
 
 type RunStatus = 'NEW' | 'DISCOVERING' | 'EXTRACTING' | 'SYNTHESIZING' | 'QA' | 'COMPLETE' | 'ERROR' | 'SKIPPED';
 
@@ -512,7 +514,48 @@ export async function orchestrateRun(runId: string) {
       }
     });
 
-    // 6) Guardrails (non-fatal)
+    // 6) Change detection for monitored projects
+    await setStatus(runId, 'QA', 'Running change detection…');
+
+    // Check if this is a re-run for change detection
+    const previousRun = await prisma.run.findFirst({
+      where: {
+        projectId: run.projectId,
+        status: 'COMPLETE',
+        createdAt: { lt: run.createdAt }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    if (previousRun) {
+      try {
+        console.log(`[Orchestrator] Running change detection for run ${runId} vs previous ${previousRun.id}`);
+        const changes = await detectSourceChanges(previousRun.id, runId);
+
+        // Store change detection results
+        await storeChangeDetection(run.projectId, previousRun.id, runId, changes);
+
+        // Check for alerts
+        const alerts = await checkForAlerts(run.projectId, changes);
+        if (alerts.length > 0) {
+          console.log(`[Orchestrator] Generated ${alerts.length} alerts for project ${run.projectId}`);
+
+          // TODO: Send email notifications here
+          for (const alert of alerts) {
+            await appendLog(runId, `ALERT: ${alert.message} (${alert.severity})`);
+          }
+        }
+
+        await appendLog(runId, `Change detection completed: ${changes.addedSources.length} added, ${changes.removedSources.length} removed, ${changes.modifiedSources.length} modified`);
+      } catch (error: any) {
+        console.error(`[Orchestrator] Change detection failed:`, error);
+        await appendLog(runId, `Change detection failed: ${error.message}`);
+      }
+    } else {
+      await appendLog(runId, 'No previous runs found for change detection');
+    }
+
+    // 7) Guardrails (non-fatal)
     await setStatus(runId, 'QA', 'Running guardrails…');
     const guard = await runGuardrails({ runId, stalenessDays });
     if (guard.issues.length) {
@@ -521,8 +564,40 @@ export async function orchestrateRun(runId: string) {
       await appendLog(runId, 'Guardrails: All checks passed');
     }
 
-    // 7) Complete
+    // 8) Send notifications
     await setStatus(runId, 'COMPLETE', `Report ready: ${report.id}`);
+
+    // Send email notification to user
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: run.project.userId }
+      });
+
+      if (user?.email) {
+        const findings = await prisma.finding.findMany({
+          where: { runId },
+          select: { text: true, notes: true }
+        });
+
+        const emailSent = await sendReportCompletionNotification(
+          user.email,
+          user.name || 'User',
+          run.project.name,
+          runId,
+          findings
+        );
+
+        if (emailSent) {
+          await appendLog(runId, `Email notification sent to ${user.email}`);
+        } else {
+          await appendLog(runId, `Failed to send email notification`);
+        }
+      }
+    } catch (error: any) {
+      console.error(`[Orchestrator] Failed to send email notification:`, error);
+      await appendLog(runId, `Email notification failed: ${error.message}`);
+    }
+
     console.log(`[Orchestrator] Run ${runId} completed successfully`);
   } catch (error: any) {
     console.error(`[Orchestrator] Run ${runId} failed:`, error);

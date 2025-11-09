@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { MonitoringToggle } from '@/app/components/MonitoringToggle';
 
 type RunRow = { id: string; status: string; createdAt: string; completedAt?: string | null };
 
@@ -62,16 +63,25 @@ useEffect(() => {
 
   return (
     <main className="space-y-6">
-      <header className="flex items-center justify-between">
+      <Breadcrumbs
+        items={[
+          { label: 'Projects', href: '/projects' },
+          { label: 'Project Details', current: true }
+        ]}
+      />
+
+      <header className="flex flex-col sm:flex sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold">Project</h1>
-          <p className="text-sm text-gray-600">Runs for this project. Kick off new runs or bulk reruns.</p>
+          <h1 className="text-2xl font-semibold">Project Details</h1>
+          <p className="text-sm text-gray-600">Monitor runs, configure settings, and manage your competitive intelligence analysis.</p>
         </div>
         <div className="flex gap-2">
           <button className="btn btn-primary" onClick={startNew} disabled={busy}>{busy ? 'Working…' : 'Start New Run'}</button>
           <Link className="btn" href="/projects">Back to Projects</Link>
         </div>
       </header>
+
+      <MonitoringToggle projectId={projectId} />
 
       <div className="card overflow-auto">
         <table className="min-w-full text-sm">

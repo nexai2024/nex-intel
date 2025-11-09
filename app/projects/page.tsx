@@ -1,6 +1,10 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { Breadcrumbs } from '@/app/components/Breadcrumbs';
+import { LoadingTable } from '@/app/components/LoadingStates';
+import { useLoading } from '@/app/hooks/useGlobalLoading';
+import { useError } from '@/app/hooks/useGlobalError';
 
 type ProjectRow = {
   id: string;
@@ -16,13 +20,21 @@ export default function ProjectsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [bulkBusy, setBulkBusy] = useState(false);
+  const { withLoading } = useLoading();
+  const { showError } = useError();
 
   useEffect(() => {
     (async () => {
-      setLoading(true);
-      const data = await fetch('/api/projects?includeStats=1').then(r => r.json());
-      setRows(data);
-      setLoading(false);
+      try {
+        setLoading(true);
+        const data = await fetch('/api/projects?includeStats=1').then(r => r.json());
+        setRows(data);
+      } catch (error) {
+        showError('Failed to load projects');
+        console.error('Failed to load projects:', error);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
@@ -41,24 +53,50 @@ export default function ProjectsPage() {
 
   async function startSelected() {
     if (selected.size === 0) return;
-    setBulkBusy(true);
-    await fetch('/api/runs/bulk-start', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ projectIds: Array.from(selected) })
-    });
-    setBulkBusy(false);
-    alert('Runs started for selected projects.');
+    try {
+      const response = await withLoading(
+        fetch('/api/runs/bulk-start', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ projectIds: Array.from(selected) })
+        }),
+        'Starting runs for selected projects'
+      );
+
+      if (!response?.ok) {
+        showError('Failed to start runs for selected projects');
+        return;
+      }
+
+      // Refresh data
+      const data = await fetch('/api/projects?includeStats=1').then(r => r.json());
+      setRows(data);
+    } catch (error) {
+      showError('Failed to start runs for selected projects');
+    }
   }
 
   async function rerunLatestSelected() {
     if (selected.size === 0) return;
-    setBulkBusy(true);
-    await fetch('/api/runs/bulk-rerun-latest', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ projectIds: Array.from(selected) })
-    });
-    setBulkBusy(false);
-    alert('Reruns kicked for selected projects.');
+    try {
+      const response = await withLoading(
+        fetch('/api/runs/bulk-rerun-latest', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ projectIds: Array.from(selected) })
+        }),
+        'Rerunning latest runs for selected projects'
+      );
+
+      if (!response?.ok) {
+        showError('Failed to rerun latest runs');
+        return;
+      }
+
+      // Refresh data
+      const data = await fetch('/api/projects?includeStats=1').then(r => r.json());
+      setRows(data);
+    } catch (error) {
+      showError('Failed to rerun latest runs');
+    }
   }
 
   async function startSingle(projectId: string) {
@@ -77,6 +115,13 @@ export default function ProjectsPage() {
 
   return (
     <main className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Projects', current: true }
+        ]}
+      />
+
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Projects</h1>
@@ -100,26 +145,32 @@ export default function ProjectsPage() {
       </div>
 
       <div className="overflow-auto">
-        <table className="min-w-full text-sm">
-          <thead className="bg-black/5">
-            <tr>
-              <th className="p-2">
-                <input type="checkbox" checked={allChecked} onChange={toggleAll} />
-              </th>
-              <th className="p-2 text-left">Project</th>
-              <th className="p-2 text-left">Category</th>
-              <th className="p-2 text-left">Runs</th>
-              <th className="p-2 text-left">Last Run</th>
-              <th className="p-2 text-left">Status</th>
-              <th className="p-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={7} className="p-4 text-center text-gray-500">Loading projects…</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="p-4 text-center text-gray-500">No projects yet.</td></tr>
-            ) : rows.map(r => (
+        {loading ? (
+          <LoadingTable rows={5} columns={7} />
+        ) : rows.length === 0 ? (
+          <div className="card p-12 text-center">
+            <div className="text-gray-400 text-6xl mb-4">📁</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
+            <p className="text-gray-600 mb-6">Create your first competitive intelligence project</p>
+            <Link href="/projects/new" className="btn btn-primary">Create Your First Project</Link>
+          </div>
+        ) : (
+          <table className="min-w-full text-sm">
+            <thead className="bg-black/5">
+              <tr>
+                <th className="p-2">
+                  <input type="checkbox" checked={allChecked} onChange={toggleAll} />
+                </th>
+                <th className="p-2 text-left">Project</th>
+                <th className="p-2 text-left">Category</th>
+                <th className="p-2 text-left">Runs</th>
+                <th className="p-2 text-left">Last Run</th>
+                <th className="p-2 text-left">Status</th>
+                <th className="p-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
               <tr key={r.id} className="border-b">
                 <td className="p-2">
                   <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggleOne(r.id)} />
@@ -147,8 +198,9 @@ export default function ProjectsPage() {
                 </td>
               </tr>
             ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        )}
       </div>
     </main>
   );
