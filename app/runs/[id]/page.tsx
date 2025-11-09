@@ -165,6 +165,14 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
 
   return (
     <main className="p-8">
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Runs', href: '/runs' },
+          { label: `Run ${runId?.slice(0, 8)}`, current: true }
+        ]}
+      />
+
       <Timeline steps={[{ label: 'Discovery', done: status?.status === 'DISCOVERING' }, { label: 'Extraction', done: status?.status === 'EXTRACTING' }, { label: 'Synthesis', done: status?.status === 'SYNTHESIZING' }, { label: 'QA', done: status?.status === 'QA' }, { label: 'Complete', done: status?.status === 'COMPLETE' }]} />
 
       <div className="flex items-center justify-between">
