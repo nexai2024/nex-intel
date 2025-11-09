@@ -18,7 +18,7 @@ export default function NewProject() {
     keywords: '',
     competitorSeeds: '',
   });
-  const [saving, setSaving] = useState(false);
+  const { withLoading } = useLoading();
 
   function toggleMulti(key: 'targetSegments'|'regions', val: string) {
     setForm(prev => {
@@ -29,30 +29,44 @@ export default function NewProject() {
   }
 
   async function submit() {
-    setSaving(true);
-    const res = await fetch('/api/projects/create', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: form.name,
-        description: form.description,
-        industry: form.industry,
-        subIndustry: form.subIndustry,
-        targetSegments: form.targetSegments,
-        regions: form.regions,
-        deployment: form.deployment || null,
-        pricingModel: form.pricingModel || null,
-        salesMotion: form.salesMotion || null,
-        complianceNeeds: (form.complianceNeeds || '').split(',').map((s: string) => s.trim()).filter(Boolean),
-        inputs: {
-          keywords: form.keywords.split(',').map((s: string) => s.trim()).filter(Boolean),
-          competitors: form.competitorSeeds.split(',').map((s: string) => s.trim()).filter(Boolean),
-        }
-      })
-    });
-    setSaving(false);
-    if (!res.ok) { alert('Failed to create project'); return; }
-    const { id } = await res.json();
-    window.location.href = `/projects/${id}`;
+    if (!form.name.trim()) {
+      alert('Please enter a project name');
+      return;
+    }
+
+    try {
+      const res = await withLoading(
+        fetch('/api/projects/create', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name,
+            description: form.description,
+            industry: form.industry,
+            subIndustry: form.subIndustry,
+            targetSegments: form.targetSegments,
+            regions: form.regions,
+            deployment: form.deployment || null,
+            pricingModel: form.pricingModel || null,
+            salesMotion: form.salesMotion || null,
+            complianceNeeds: (form.complianceNeeds || '').split(',').map((s: string) => s.trim()).filter(Boolean),
+            inputs: {
+              keywords: form.keywords.split(',').map((s: string) => s.trim()).filter(Boolean),
+              competitors: form.competitorSeeds.split(',').map((s: string) => s.trim()).filter(Boolean),
+            }
+          })
+        }),
+        'Creating new project'
+      );
+
+      if (!res.ok) {
+        alert('Failed to create project');
+        return;
+      }
+      const { id } = await res.json();
+      window.location.href = `/projects/${id}`;
+    } catch (error) {
+      alert('Failed to create project. Please try again.');
+    }
   }
 
   return (
