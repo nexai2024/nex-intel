@@ -35,8 +35,18 @@ export default function RunsIndex({ searchParams }: any) {
 
   return (
     <main className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Runs', current: true }
+        ]}
+      />
+
       <header className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Runs</h1>
+        <div>
+          <h1 className="text-2xl font-semibold">Runs</h1>
+          <p className="text-sm text-gray-600">Monitor and manage all your competitive intelligence runs.</p>
+        </div>
         <div className="flex gap-2">
           <Link className="btn" href="/projects">Projects</Link>
         </div>
