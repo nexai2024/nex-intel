@@ -1,7 +1,10 @@
 /**
- * Email notification system for IntelBox
- * Currently supports report completion and change alerts
+ * Enhanced email notification system for Nex-Intel
+ * Integrates with email service providers for actual email delivery
  */
+
+import { getEmailService } from '@/lib/email';
+import { EmailMessage } from '@/lib/email';
 
 // Email templates
 export interface EmailTemplate {
@@ -233,51 +236,41 @@ This notification was sent by IntelBox - Evidence-first competitive intelligence
 }
 
 /**
- * Send email notification (placeholder implementation)
- * In production, this would integrate with a service like Resend, SendGrid, or AWS SES
+ * Send email notification using the configured email service
+ * Integrates with Resend, SendGrid, or AWS SES based on configuration
  */
 export async function sendEmail(to: string, template: EmailTemplate): Promise<boolean> {
   try {
-    // TODO: Implement actual email sending
-    // For now, we'll log the email details
-
-    console.log(`[Email] Would send email to: ${to}`);
+    // Log email details for debugging
+    console.log(`[Email] Sending email to: ${to}`);
     console.log(`[Email] Subject: ${template.subject}`);
     console.log(`[Email] HTML length: ${template.html.length} characters`);
-    console.log(`[Email] Text length: ${template.text.length} characters`);
 
-    // Example implementation with Resend:
-    /*
-    if (process.env.RESEND_API_KEY) {
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: process.env.FROM_EMAIL || 'noreply@intelbox.app',
-          to: [to],
-          subject: template.subject,
-          html: template.html,
-          text: template.text,
-        }),
-      });
+    // Get the configured email service
+    const emailService = getEmailService();
 
-      if (!response.ok) {
-        throw new Error(`Email API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log(`[Email] Sent successfully: ${data.id}`);
-      return true;
+    // Check if email service is properly configured
+    const isValid = await emailService.validateConfig();
+    if (!isValid) {
+      console.warn('[Email] Email service not properly configured, skipping email send');
+      return false;
     }
-    */
 
-    // For development, we'll return true to simulate successful sending
+    // Create email message
+    const emailMessage: EmailMessage = {
+      to,
+      subject: template.subject,
+      html: template.html,
+    };
+
+    // Send the email
+    const result = await emailService.send(emailMessage);
+    console.log(`[Email] Sent successfully: ${result.id}`);
     return true;
+
   } catch (error) {
     console.error('[Email] Failed to send email:', error);
+    // Return false instead of throwing to avoid breaking workflows
     return false;
   }
 }
@@ -314,4 +307,212 @@ export async function sendMonitoringSetupNotification(userEmail: string, userNam
     html: personalizedHtml,
     text: personalizedText
   });
+}
+
+/**
+ * Send team invitation notification
+ */
+export async function sendTeamInvitationNotification(userEmail: string, userName: string, invitedBy: string, teamName: string, role: string): Promise<boolean> {
+  try {
+    const emailService = getEmailService();
+    const isValid = await emailService.validateConfig();
+    if (!isValid) {
+      console.warn('[Email] Email service not properly configured, skipping team invitation email');
+      return false;
+    }
+
+    // Use the convenience function from email.ts
+    await emailService.send({
+      to: userEmail,
+      subject: `Team Invitation: ${teamName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Team Invitation</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #6366f1; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px 20px; }
+            .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }
+            .button { display: inline-block; background: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; margin: 10px 0; }
+            .invitation { background: #f0f9ff; border-left: 4px solid #6366f1; padding: 15px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Team Invitation</h1>
+            </div>
+            <div class="content">
+              <p>Hi ${userName},</p>
+              <p>You've been invited to join the team <strong>${teamName}</strong> on Nex-Intel!</p>
+
+              <div class="invitation">
+                <strong>Invitation Details:</strong><br>
+                Invited by: ${invitedBy}<br>
+                Role: ${role}<br>
+                Team: ${teamName}
+              </div>
+
+              <p>Nex-Intel is a competitive intelligence platform that helps teams track competitors, analyze market trends, and generate strategic insights.</p>
+
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.nex-intel.com'}" class="button">Accept Invitation</a>
+
+              <p>If you have any questions about this invitation, please contact ${invitedBy}.</p>
+
+              <p>Best regards,<br>The Nex-Intel Team</p>
+            </div>
+            <div class="footer">
+              <p>© 2025 Nex-Intel. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    console.log(`[Email] Team invitation sent successfully to: ${userEmail}`);
+    return true;
+  } catch (error) {
+    console.error('[Email] Failed to send team invitation:', error);
+    return false;
+  }
+}
+
+/**
+ * Send role change notification
+ */
+export async function sendRoleChangeNotification(userEmail: string, userName: string, teamName: string, oldRole: string, newRole: string, changedBy: string): Promise<boolean> {
+  try {
+    const emailService = getEmailService();
+    const isValid = await emailService.validateConfig();
+    if (!isValid) {
+      console.warn('[Email] Email service not properly configured, skipping role change email');
+      return false;
+    }
+
+    await emailService.send({
+      to: userEmail,
+      subject: `Role Updated in ${teamName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Role Updated</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #8b5cf6; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px 20px; }
+            .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }
+            .role-change { background: #f3f0ff; border-left: 4px solid #8b5cf6; padding: 15px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Role Updated</h1>
+            </div>
+            <div class="content">
+              <p>Hi ${userName},</p>
+              <p>Your role in the team <strong>${teamName}</strong> has been updated.</p>
+
+              <div class="role-change">
+                <strong>Role Change:</strong><br>
+                From: ${oldRole}<br>
+                To: ${newRole}<br>
+                Changed by: ${changedBy}
+              </div>
+
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.nex-intel.com'}" class="button">View Team</a>
+
+              <p>If you have any questions about this change, please contact ${changedBy}.</p>
+
+              <p>Best regards,<br>The Nex-Intel Team</p>
+            </div>
+            <div class="footer">
+              <p>© 2025 Nex-Intel. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    console.log(`[Email] Role change notification sent successfully to: ${userEmail}`);
+    return true;
+  } catch (error) {
+    console.error('[Email] Failed to send role change notification:', error);
+    return false;
+  }
+}
+
+/**
+ * Send team member removal notification
+ */
+export async function sendMemberRemovalNotification(userEmail: string, userName: string, teamName: string, removedBy: string): Promise<boolean> {
+  try {
+    const emailService = getEmailService();
+    const isValid = await emailService.validateConfig();
+    if (!isValid) {
+      console.warn('[Email] Email service not properly configured, skipping removal notification email');
+      return false;
+    }
+
+    await emailService.send({
+      to: userEmail,
+      subject: `Removed from ${teamName}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Team Membership Update</title>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #ef4444; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px 20px; }
+            .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666; }
+            .removal { background: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Team Membership Update</h1>
+            </div>
+            <div class="content">
+              <p>Hi ${userName},</p>
+              <p>Your membership in the team <strong>${teamName}</strong> has been ended.</p>
+
+              <div class="removal">
+                <strong>Removal Details:</strong><br>
+                Team: ${teamName}<br>
+                Removed by: ${removedBy}
+              </div>
+
+              <p>If you believe this was done in error or have any questions, please contact ${removedBy}.</p>
+
+              <p>Best regards,<br>The Nex-Intel Team</p>
+            </div>
+            <div class="footer">
+              <p>© 2025 Nex-Intel. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    });
+
+    console.log(`[Email] Member removal notification sent successfully to: ${userEmail}`);
+    return true;
+  } catch (error) {
+    console.error('[Email] Failed to send member removal notification:', error);
+    return false;
+  }
 }

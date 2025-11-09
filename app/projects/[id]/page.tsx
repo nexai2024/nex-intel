@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { Breadcrumbs } from '@/app/components/Breadcrumbs';
 import { MonitoringToggle } from '@/app/components/MonitoringToggle';
 
 type RunRow = { id: string; status: string; createdAt: string; completedAt?: string | null };
@@ -10,12 +11,12 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
-useEffect(() => {
-  (async () => {
-    const { id } = await params;
-    setProjectId(id);
-  })();
-}, [params]);
+  useEffect(() => {
+    (async () => {
+      const { id } = await params;
+      setProjectId(id);
+    })();
+  }, [params]);
   useEffect(() => {
     (async () => {
       const data = await fetch(`/api/projects/${projectId}/runs`).then(r => r.json());

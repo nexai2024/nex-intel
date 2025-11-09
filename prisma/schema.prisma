@@ -11,7 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DIRECT_URL")
 }
 enum Deployment {
   CLOUD
@@ -62,6 +62,7 @@ model Project {
   comments        Comment[]
   activities      Activity[]
   approvalWorkflows ApprovalWorkflow[]
+  sharedReports   ReportShare[]
 }
 
 
@@ -117,6 +118,8 @@ model User {
   comments      Comment[]
   activities    Activity[]
   notifications Notification[]
+  emailPreferences EmailPreferences?
+  sharedReports ReportShare[]
 }
 
 
@@ -263,6 +266,7 @@ model Report {
   format     String   // MARKDOWN, PDF, NOTION
   createdAt  DateTime @default(now())
   approved   Boolean  @default(false)
+  shares     ReportShare[]
 }
 
 model Job {
@@ -435,4 +439,49 @@ model NaturalLanguageQuery {
   context   Json?    // Projects, competitors, timeframes
   result    Json?    // Query results
   createdAt DateTime @default(now())
+}
+
+// Email Preferences Model
+model EmailPreferences {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Notification types
+  reportCompletions         Boolean  @default(true)
+  monitoringAlerts          Boolean  @default(true)
+  teamInvitations           Boolean  @default(true)
+  roleChanges               Boolean  @default(true)
+  memberRemovals            Boolean  @default(true)
+  mentions                  Boolean  @default(true)
+  commentReplies            Boolean  @default(true)
+  approvalRequests          Boolean  @default(true)
+
+  // Email frequency settings
+  weeklyDigest              Boolean  @default(false)
+  monthlySummary            Boolean  @default(true)
+
+  // Additional settings
+  unsubscribeToken          String   @unique
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
+
+// Report Share Model for Public Sharing
+model ReportShare {
+  id             String    @id @default(cuid())
+  reportId       String
+  report         Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  token          String    @unique
+  expiresAt      DateTime?
+  password       String?   // Optional password protection
+  allowDownload  Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  createdById    String
+  createdBy      User      @relation(fields: [createdById], references: [id])
+
+  @@index([token])
+  @@index([expiresAt])
 }

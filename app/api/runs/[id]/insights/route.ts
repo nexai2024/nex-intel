@@ -3,10 +3,11 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ runId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { runId } = await params;
+    const { id } = await params;
+    const runId = id;
 
     const insights = await prisma.aIInsight.findMany({
       where: { runId },
@@ -135,10 +136,11 @@ async function generateSampleInsights(runId: string) {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ runId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { runId } = await params;
+    const { id } = await params;
+    const runId = id;
     const { type, title, content, metadata } = await request.json();
 
     if (!type || !title || !content) {
@@ -168,3 +170,4 @@ export async function POST(
     );
   }
 }
+
