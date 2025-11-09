@@ -118,6 +118,9 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
             ]);
             setReport(rep);
             setFindings(fds);
+
+            // Load AI insights when run is complete
+            loadAIInsights();
           } catch (err) {
             console.error('Error fetching report/findings:', err);
           }
@@ -132,6 +135,23 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
     poll();
     return () => clearTimeout(timer);
   }, [runId]);
+
+  async function loadAIInsights() {
+    if (!runId) return;
+
+    try {
+      setLoadingInsights(true);
+      const response = await fetch(`/api/runs/${runId}/insights`);
+      if (!response.ok) throw new Error('Failed to load AI insights');
+      const insights = await response.json();
+      setAiInsights(insights);
+    } catch (error) {
+      console.error('Failed to load AI insights:', error);
+      // Don't show error for insights as they're optional
+    } finally {
+      setLoadingInsights(false);
+    }
+  }
 
   useEffect(() => {
     async function fetchQaSummary() {
