@@ -30,14 +30,7 @@ export async function getCurrentUser() {
   return dbUser;
 }
 
-/**
- * Require authentication - throws if not authenticated
- */
-export async function requireAuth() {
-  const user = await getCurrentUser();
-  if (!user) {
-    throw new Error('Unauthorized');
-  }
-  return user;
-}
+import { createServerClient } from '@/lib/supabase/server';
+import { prisma } from '@/lib/prisma';
+import { AuthenticationError } from '@/lib/errors';
 
