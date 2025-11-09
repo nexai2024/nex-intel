@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Breadcrumbs } from '@/app/components/Breadcrumbs';
 import { LoadingTable } from '@/app/components/LoadingStates';
 import { useLoading } from '@/app/hooks/useGlobalLoading';
+import { useError } from '@/app/hooks/useGlobalError';
 
 type ProjectRow = {
   id: string;
