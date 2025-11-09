@@ -9,6 +9,9 @@ import { MobileNavigation, MobileNavigationButton } from '@/app/components/Mobil
 import { useOnboarding } from '@/hooks/useOnboarding';
 import { LoadingProvider } from '@/app/hooks/useGlobalLoading';
 import { GlobalLoadingOverlay } from '@/app/components/GlobalLoadingOverlay';
+import { ErrorProvider } from '@/app/hooks/useGlobalError';
+import { ErrorNotification } from '@/app/components/ErrorNotification';
+import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
 interface AppLayoutProps {
   children: React.ReactNode;
