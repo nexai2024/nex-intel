@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { HttpError } from '@/lib/http';
-import { compare } from 'bcryptjs';
 
 export async function GET(
   request: NextRequest,
