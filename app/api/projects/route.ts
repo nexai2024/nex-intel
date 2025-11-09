@@ -3,6 +3,7 @@ import { json, HttpError } from '@/lib/http';
 import { z } from 'zod';
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { getUserAccessibleProjects } from '@/lib/rbac';
 
 const bodySchema = z.object({
   name: z.string().min(2),
