@@ -1,5 +1,7 @@
 'use client';
 import { useState } from 'react';
+import { Breadcrumbs } from '@/app/components/Breadcrumbs';
+import { useLoading } from '@/app/hooks/useGlobalLoading';
 
 export default function NewProject() {
   const [form, setForm] = useState({
@@ -16,7 +18,7 @@ export default function NewProject() {
     keywords: '',
     competitorSeeds: '',
   });
-  const [saving, setSaving] = useState(false);
+  const { withLoading } = useLoading();
 
   function toggleMulti(key: 'targetSegments'|'regions', val: string) {
     setForm(prev => {
@@ -27,35 +29,59 @@ export default function NewProject() {
   }
 
   async function submit() {
-    setSaving(true);
-    const res = await fetch('/api/projects/create', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: form.name,
-        description: form.description,
-        industry: form.industry,
-        subIndustry: form.subIndustry,
-        targetSegments: form.targetSegments,
-        regions: form.regions,
-        deployment: form.deployment || null,
-        pricingModel: form.pricingModel || null,
-        salesMotion: form.salesMotion || null,
-        complianceNeeds: (form.complianceNeeds || '').split(',').map((s: string) => s.trim()).filter(Boolean),
-        inputs: {
-          keywords: form.keywords.split(',').map((s: string) => s.trim()).filter(Boolean),
-          competitors: form.competitorSeeds.split(',').map((s: string) => s.trim()).filter(Boolean),
-        }
-      })
-    });
-    setSaving(false);
-    if (!res.ok) { alert('Failed to create project'); return; }
-    const { id } = await res.json();
-    window.location.href = `/projects/${id}`;
+    if (!form.name.trim()) {
+      alert('Please enter a project name');
+      return;
+    }
+
+    try {
+      const res = await withLoading(
+        fetch('/api/projects/create', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            name: form.name,
+            description: form.description,
+            industry: form.industry,
+            subIndustry: form.subIndustry,
+            targetSegments: form.targetSegments,
+            regions: form.regions,
+            deployment: form.deployment || null,
+            pricingModel: form.pricingModel || null,
+            salesMotion: form.salesMotion || null,
+            complianceNeeds: (form.complianceNeeds || '').split(',').map((s: string) => s.trim()).filter(Boolean),
+            inputs: {
+              keywords: form.keywords.split(',').map((s: string) => s.trim()).filter(Boolean),
+              competitors: form.competitorSeeds.split(',').map((s: string) => s.trim()).filter(Boolean),
+            }
+          })
+        }),
+        'Creating new project'
+      );
+
+      if (!res.ok) {
+        alert('Failed to create project');
+        return;
+      }
+      const { id } = await res.json();
+      window.location.href = `/projects/${id}`;
+    } catch (error) {
+      alert('Failed to create project. Please try again.');
+    }
   }
 
   return (
     <main className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold">New Project</h1>
+      <Breadcrumbs
+        items={[
+          { label: 'Projects', href: '/projects' },
+          { label: 'New Project', current: true }
+        ]}
+      />
+
+      <header>
+        <h1 className="text-2xl font-semibold">New Project</h1>
+        <p className="text-sm text-gray-600">Create a new competitive intelligence project</p>
+      </header>
 
       <section className="card p-4 grid sm:grid-cols-2 gap-3">
         <label> Name <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /> </label>
@@ -106,7 +132,7 @@ export default function NewProject() {
       </section>
 
       <div className="flex gap-2">
-        <button className="btn btn-primary" onClick={submit} disabled={saving}>{saving ? 'Creating…' : 'Create Project'}</button>
+        <button className="btn btn-primary" onClick={submit}>Create Project</button>
       </div>
     </main>
   );
