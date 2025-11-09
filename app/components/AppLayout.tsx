@@ -59,7 +59,11 @@ export function AppLayout({ children }: AppLayoutProps) {
         onClose={closeOnboarding}
         userFirstName={user?.name?.split(' ')[0]}
       />
-    </>
+
+      {/* Global Loading Overlay */}
+      <GlobalLoadingOverlay />
+      </>
+    </LoadingProvider>
   );
 }
 
