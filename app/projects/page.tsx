@@ -53,26 +53,50 @@ export default function ProjectsPage() {
 
   async function startSelected() {
     if (selected.size === 0) return;
-    await withLoading(
-      fetch('/api/runs/bulk-start', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ projectIds: Array.from(selected) })
-      }),
-      'Starting runs for selected projects'
-    );
-    alert('Runs started for selected projects.');
+    try {
+      const response = await withLoading(
+        fetch('/api/runs/bulk-start', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ projectIds: Array.from(selected) })
+        }),
+        'Starting runs for selected projects'
+      );
+
+      if (!response?.ok) {
+        showError('Failed to start runs for selected projects');
+        return;
+      }
+
+      // Refresh data
+      const data = await fetch('/api/projects?includeStats=1').then(r => r.json());
+      setRows(data);
+    } catch (error) {
+      showError('Failed to start runs for selected projects');
+    }
   }
 
   async function rerunLatestSelected() {
     if (selected.size === 0) return;
-    await withLoading(
-      fetch('/api/runs/bulk-rerun-latest', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ projectIds: Array.from(selected) })
-      }),
-      'Rerunning latest runs for selected projects'
-    );
-    alert('Reruns kicked for selected projects.');
+    try {
+      const response = await withLoading(
+        fetch('/api/runs/bulk-rerun-latest', {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ projectIds: Array.from(selected) })
+        }),
+        'Rerunning latest runs for selected projects'
+      );
+
+      if (!response?.ok) {
+        showError('Failed to rerun latest runs');
+        return;
+      }
+
+      // Refresh data
+      const data = await fetch('/api/projects?includeStats=1').then(r => r.json());
+      setRows(data);
+    } catch (error) {
+      showError('Failed to rerun latest runs');
+    }
   }
 
   async function startSingle(projectId: string) {
