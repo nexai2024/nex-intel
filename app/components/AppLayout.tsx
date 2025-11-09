@@ -7,6 +7,8 @@ import { AuthButton } from '@/app/components/AuthButton';
 import { OnboardingModal } from '@/app/components/OnboardingModal';
 import { MobileNavigation, MobileNavigationButton } from '@/app/components/MobileNavigation';
 import { useOnboarding } from '@/hooks/useOnboarding';
+import { LoadingProvider } from '@/app/hooks/useGlobalLoading';
+import { GlobalLoadingOverlay } from '@/app/components/GlobalLoadingOverlay';
 
 interface AppLayoutProps {
   children: React.ReactNode;
