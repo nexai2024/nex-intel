@@ -1,7 +1,10 @@
 /**
- * Email notification system for IntelBox
- * Currently supports report completion and change alerts
+ * Enhanced email notification system for Nex-Intel
+ * Integrates with email service providers for actual email delivery
  */
+
+import { getEmailService } from '@/lib/email';
+import { EmailMessage } from '@/lib/email';
 
 // Email templates
 export interface EmailTemplate {
