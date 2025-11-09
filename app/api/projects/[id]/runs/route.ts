@@ -8,19 +8,8 @@ export async function GET(_: Request, ctx: { params: Promise<{ id: string }> }) 
     const user = await requireAuth();
     const { id: projectId } = await ctx.params;
     
-    // Verify project exists and user owns it
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { userId: true }
-    });
-    
-    if (!project) {
-      throw new HttpError(404, 'Project not found');
-    }
-    
-    if (project.userId !== user.id) {
-      throw new HttpError(403, 'Forbidden');
-    }
+    // Check if user can view this project
+    await requireCanViewProject(user.id, projectId);
     
     // Get all runs for this project
     const runs = await prisma.run.findMany({
