@@ -166,8 +166,39 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
     <main className="p-8">
       <Timeline steps={[{ label: 'Discovery', done: status?.status === 'DISCOVERING' }, { label: 'Extraction', done: status?.status === 'EXTRACTING' }, { label: 'Synthesis', done: status?.status === 'SYNTHESIZING' }, { label: 'QA', done: status?.status === 'QA' }, { label: 'Complete', done: status?.status === 'COMPLETE' }]} />
 
-      <h1 className="text-2xl font-semibold">Run {runId}</h1>
-      <p className="mt-2">Status: <strong>{status?.status ?? '—'}</strong></p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Run {runId}</h1>
+          <p className="mt-2">Status: <strong>{status?.status ?? '—'}</strong></p>
+        </div>
+        {report && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">View:</span>
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('standard')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'standard'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Standard
+              </button>
+              <button
+                onClick={() => setViewMode('interactive')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'interactive'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Interactive
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
       {status?.status === 'QA' && (
         <details className="mt-3 border rounded p-3">
           <summary className="cursor-pointer">View QA Summary</summary>
