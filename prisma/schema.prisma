@@ -292,3 +292,141 @@ model RunLog {
     createdAt  DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// Team Collaboration Models
+enum TeamRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CHANGES_REQUESTED
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  avatar      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  projects Project[]
+  members  TeamMember[]
+  activities Activity[]
+}
+
+model TeamMember {
+  id     String   @id @default(cuid())
+  teamId String
+  userId String
+  role   TeamRole @default(VIEWER)
+  joinedAt DateTime @default(now())
+
+  team Team @relation(fields: [teamId], references: [id])
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([teamId, userId])
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  content    String
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id])
+  runId      String?
+  reportId   String?
+  parentId   String?  // For threaded comments
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  parent Comment? @relation("CommentReplies", fields: [parentId], references: [id])
+  replies Comment[] @relation("CommentReplies")
+}
+
+model Activity {
+  id         String   @id @default(cuid())
+  type       String   // PROJECT_CREATED, RUN_STARTED, REPORT_APPROVED, COMMENT_ADDED, etc.
+  message    String
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  teamId     String?
+  team       Team?    @relation(fields: [teamId], references: [id])
+  projectId  String?
+  project    Project? @relation(fields: [projectId], references: [id])
+  runId      String?
+  reportId   String?
+  metadata   Json?    // Additional data for specific activity types
+  createdAt  DateTime @default(now())
+}
+
+model ApprovalWorkflow {
+  id         String         @id @default(cuid())
+  projectId  String
+  project    Project        @relation(fields: [projectId], references: [id])
+  reportId   String?
+  runId      String?
+  type       String         // REPORT_APPROVAL, PROJECT_APPROVAL, etc.
+  status     ApprovalStatus @default(PENDING)
+  requestedBy String
+  requestedAt DateTime      @default(now())
+  reviewedBy String?
+  reviewedAt DateTime?
+  notes      String?
+  metadata   Json?
+
+  reviews ApprovalReview[]
+}
+
+model ApprovalReview {
+  id                 String         @id @default(cuid())
+  approvalWorkflowId String
+  approvalWorkflow   ApprovalWorkflow @relation(fields: [approvalWorkflowId], references: [id])
+  reviewerId         String
+  status             ApprovalStatus
+  decision           String?        // APPROVE, REJECT, REQUEST_CHANGES
+  notes              String?
+  createdAt          DateTime       @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // MENTION, COMMENT_REPLY, APPROVAL_REQUEST, etc.
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+// AI Insights Models
+model AIInsight {
+  id        String   @id @default(cuid())
+  runId     String
+  run       Run      @relation(fields: [runId], references: [id])
+  type      String   // TREND, PREDICTION, RECOMMENDATION, ANOMALY
+  title     String
+  content   String
+  confidence Float
+  metadata  Json?    // AI model, parameters, etc.
+  createdAt DateTime @default(now())
+}
+
+model NaturalLanguageQuery {
+  id        String   @id @default(cuid())
+  userId    String
+  query     String
+  intent    String?  // COMPARE, SEARCH, ANALYZE, etc.
+  context   Json?    // Projects, competitors, timeframes
+  result    Json?    // Query results
+  createdAt DateTime @default(now())
+}
