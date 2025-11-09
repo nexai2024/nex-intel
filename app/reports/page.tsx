@@ -66,6 +66,13 @@ export default function ReportsPage() {
 
   return (
     <main className="space-y-6">
+      <Breadcrumbs
+        items={[
+          { label: 'Dashboard', href: '/dashboard' },
+          { label: 'Reports', current: true }
+        ]}
+      />
+
       <header className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Reports</h1>
