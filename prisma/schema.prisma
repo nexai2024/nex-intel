@@ -144,8 +144,8 @@ model Run {
   completedAt DateTime?
   qaSummary   String?
   qaIssue     String?
-lastNote       String?  // reviewer notesd
-competitorCapabilities  CompetitorCapability[]
+  lastNote    String?  // reviewer notes
+  competitorCapabilities  CompetitorCapability[]
   capabilities  Capability[]
   sources     Source[]
   competitors Competitor[]
@@ -155,8 +155,9 @@ competitorCapabilities  CompetitorCapability[]
   findings    Finding[]
   reports     Report[]
   integrations  Integration[]
- complianceItems ComplianceItem[]
- logs RunLog[]
+  complianceItems ComplianceItem[]
+  logs        RunLog[]
+  aiInsights  AIInsight[]
 }
 
 
