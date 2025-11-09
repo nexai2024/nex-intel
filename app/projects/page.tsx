@@ -21,13 +21,20 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [bulkBusy, setBulkBusy] = useState(false);
   const { withLoading } = useLoading();
+  const { showError } = useError();
 
   useEffect(() => {
     (async () => {
-      setLoading(true);
-      const data = await fetch('/api/projects?includeStats=1').then(r => r.json());
-      setRows(data);
-      setLoading(false);
+      try {
+        setLoading(true);
+        const data = await fetch('/api/projects?includeStats=1').then(r => r.json());
+        setRows(data);
+      } catch (error) {
+        showError('Failed to load projects');
+        console.error('Failed to load projects:', error);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
