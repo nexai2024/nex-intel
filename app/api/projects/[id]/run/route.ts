@@ -3,6 +3,7 @@ import { json, HttpError } from '@/lib/http';
 import { log } from '@/lib/logger';
 import { orchestrateRun } from '@/app/api/runs/orchestrator';
 import { requireAuth } from '@/lib/auth';
+import { requireCanEditProject } from '@/lib/rbac';
 import { canConsume, consume } from '@/lib/credits';
 
 export async function POST(_: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -26,6 +27,10 @@ export async function POST(_: Request, ctx: { params: Promise<{ id: string }> })
   }
 
   const projectId = (await ctx.params).id;
+
+  // Check if user can edit this project (required to run analysis)
+  await requireCanEditProject(user.id, projectId);
+
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: { projectInputs: true }
