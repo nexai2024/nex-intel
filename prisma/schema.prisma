@@ -437,3 +437,29 @@ model NaturalLanguageQuery {
   result    Json?    // Query results
   createdAt DateTime @default(now())
 }
+
+// Email Preferences Model
+model EmailPreferences {
+  id                        String   @id @default(cuid())
+  userId                    String   @unique
+  user                      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Notification types
+  reportCompletions         Boolean  @default(true)
+  monitoringAlerts          Boolean  @default(true)
+  teamInvitations           Boolean  @default(true)
+  roleChanges               Boolean  @default(true)
+  memberRemovals            Boolean  @default(true)
+  mentions                  Boolean  @default(true)
+  commentReplies            Boolean  @default(true)
+  approvalRequests          Boolean  @default(true)
+
+  // Email frequency settings
+  weeklyDigest              Boolean  @default(false)
+  monthlySummary            Boolean  @default(true)
+
+  // Additional settings
+  unsubscribeToken          String   @unique
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}
