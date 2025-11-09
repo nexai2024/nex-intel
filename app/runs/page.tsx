@@ -1,6 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
+import { Breadcrumbs } from '@/app/components/Breadcrumbs';
 
 type Row = { id: string; status: string; createdAt: string; completedAt?: string | null; project: { id: string; name: string } };
 type Resp = { rows: Row[]; total: number; page: number; pageSize: number };
