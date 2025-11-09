@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { Breadcrumbs } from '@/app/components/Breadcrumbs';
+import { useLoading } from '@/app/hooks/useGlobalLoading';
 
 export default function NewProject() {
   const [form, setForm] = useState({
