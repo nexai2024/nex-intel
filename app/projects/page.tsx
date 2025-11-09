@@ -45,23 +45,25 @@ export default function ProjectsPage() {
 
   async function startSelected() {
     if (selected.size === 0) return;
-    setBulkBusy(true);
-    await fetch('/api/runs/bulk-start', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ projectIds: Array.from(selected) })
-    });
-    setBulkBusy(false);
+    await withLoading(
+      fetch('/api/runs/bulk-start', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ projectIds: Array.from(selected) })
+      }),
+      'Starting runs for selected projects'
+    );
     alert('Runs started for selected projects.');
   }
 
   async function rerunLatestSelected() {
     if (selected.size === 0) return;
-    setBulkBusy(true);
-    await fetch('/api/runs/bulk-rerun-latest', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ projectIds: Array.from(selected) })
-    });
-    setBulkBusy(false);
+    await withLoading(
+      fetch('/api/runs/bulk-rerun-latest', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ projectIds: Array.from(selected) })
+      }),
+      'Rerunning latest runs for selected projects'
+    );
     alert('Reruns kicked for selected projects.');
   }
 
