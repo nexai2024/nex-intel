@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </Link>
             </div>
             <nav className="px-3 space-y-1">
+              <NavItem href="/dashboard">Dashboard</NavItem>
               <NavItem href="/projects">Projects</NavItem>
               <NavItem href="/runs">Runs</NavItem>
               <NavItem href="/reports">Reports</NavItem>

@@ -42,12 +42,15 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect project pages
-  if (request.nextUrl.pathname.startsWith('/projects') && 
-      !request.nextUrl.pathname.startsWith('/projects/new')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/auth/login', request.url));
-    }
+  // Protect authenticated pages
+  const protectedPaths = ['/dashboard', '/projects', '/runs', '/reports', '/jobs', '/settings'];
+  const isProtectedPath = protectedPaths.some(path =>
+    request.nextUrl.pathname.startsWith(path) &&
+    !(path === '/projects' && request.nextUrl.pathname.startsWith('/projects/new'))
+  );
+
+  if (isProtectedPath && !user) {
+    return NextResponse.redirect(new URL('/auth/login', request.url));
   }
 
   return response;

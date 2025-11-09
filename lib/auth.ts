@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { prisma } from '@/lib/prisma';
+import { AuthenticationError } from '@/lib/errors';
 
 /**
  * Get the current authenticated user from Supabase
@@ -36,7 +37,7 @@ export async function getCurrentUser() {
 export async function requireAuth() {
   const user = await getCurrentUser();
   if (!user) {
-    throw new Error('Unauthorized');
+    throw new AuthenticationError();
   }
   return user;
 }
