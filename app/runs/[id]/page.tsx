@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { EvidenceDrawer } from '@/app/components/EvidenceDrawer';
 import { MarkdownWithCitations } from '@/components/MarkdownWithCitations';
+import { InteractiveReportViewer } from '@/app/components/InteractiveReportViewer';
 type Status = { status: string; createdAt: string; completedAt?: string };
 type Report = { headline: string; markdown: string; createdAt: string };
 type Finding = { id: string; kind: 'COMMON_FEATURE'|'GAP'|'DIFFERENTIATOR'|'RISK'|'RECOMMENDATION'; text: string; citations: string[]; confidence: number };
