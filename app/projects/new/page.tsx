@@ -56,7 +56,17 @@ export default function NewProject() {
 
   return (
     <main className="max-w-3xl space-y-6">
-      <h1 className="text-2xl font-semibold">New Project</h1>
+      <Breadcrumbs
+        items={[
+          { label: 'Projects', href: '/projects' },
+          { label: 'New Project', current: true }
+        ]}
+      />
+
+      <header>
+        <h1 className="text-2xl font-semibold">New Project</h1>
+        <p className="text-sm text-gray-600">Create a new competitive intelligence project</p>
+      </header>
 
       <section className="card p-4 grid sm:grid-cols-2 gap-3">
         <label> Name <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /> </label>
