@@ -272,6 +272,8 @@ model CreditLedger {
   used      Int      @default(0)
   limit     Int      @default(1000)
   updatedAt DateTime @updatedAt
+
+  @@unique([userId, month])
 }
 model AppSetting {
   key       String  @id
