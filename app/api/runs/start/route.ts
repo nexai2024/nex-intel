@@ -1,9 +1,8 @@
 import { prisma } from '@/lib/prisma';
-import { json, HttpError } from '@/lib/http';
-import { log } from '@/lib/logger';
 import { orchestrateRun } from '@/app/api/runs/orchestrator';
 import { requireAuth } from '@/lib/auth';
 import { canConsume, consume } from '@/lib/credits';
+import { handleError, logError, createErrorResponse, ValidationError, NotFoundError, AuthorizationError, RateLimitError } from '@/lib/errors';
 
 export async function POST(req: Request) {
   try {
