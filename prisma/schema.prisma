@@ -11,7 +11,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DIRECT_URL")
+  url      = env("DATABASE_URL")
 }
 enum Deployment {
   CLOUD
@@ -35,6 +35,12 @@ enum SalesMotion {
   MIXED
 }
 
+enum FeatureOrigin {
+  USER
+  COMPETITOR
+  SYSTEM
+}
+
 model Project {
   id              String        @id @default(cuid())
   userId          String?
@@ -56,6 +62,7 @@ model Project {
   salesMotion     SalesMotion?
   complianceNeeds String[]      // e.g., ["SOC 2", "HIPAA", "GDPR"]
   projectInputs   ProjectInput[]
+  projectFeatures ProjectFeature[]
   inputs          Json?
   runs            Run[]
   reports         Report[]
@@ -194,7 +201,22 @@ model Competitor {
   pricingPoints PricingPoint[]
   evidences   Evidence[]
 competitorCapabilities  CompetitorCapability[]
+  features    Feature[]
   @@unique([runId, name])
+}
+
+model FeatureDefinition {
+  id          String         @id @default(cuid())
+  name        String
+  normalized  String         @unique
+  category    String?
+  description String?
+  origin      FeatureOrigin  @default(COMPETITOR)
+  aliases     String[]       @default([])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  projectFeatures ProjectFeature[]
+  features        Feature[]
 }
 
 model Feature {
@@ -208,6 +230,32 @@ model Feature {
   evidences    Evidence[] 
   sourceId     String
   source       Source   @relation(fields: [sourceId], references: [id])
+  featureDefinitionId String?
+  featureDefinition   FeatureDefinition? @relation(fields: [featureDefinitionId], references: [id])
+  competitorId String?
+  competitor   Competitor? @relation(fields: [competitorId], references: [id])
+  origin       FeatureOrigin?
+  confidence   Float?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([featureDefinitionId])
+  @@index([competitorId])
+  @@unique([runId, competitorId, normalized])
+}
+
+model ProjectFeature {
+  id                 String         @id @default(cuid())
+  projectId          String
+  project            Project        @relation(fields: [projectId], references: [id])
+  featureDefinitionId String
+  featureDefinition  FeatureDefinition @relation(fields: [featureDefinitionId], references: [id])
+  importance         Int?
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  @@unique([projectId, featureDefinitionId])
 }
 
 model PricingPoint {

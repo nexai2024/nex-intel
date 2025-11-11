@@ -20,12 +20,11 @@ interface SourceSnapshot {
 export function generateContentHash(content: string): string {
   // Create a hash of the first 2000 characters to detect significant changes
   const contentSample = content.slice(0, 2000).replace(/\s+/g, ' ').trim();
-  return hash('sha256', contentSample).digest('hex');
+  const hashObj = require('crypto').createHash('sha256');
+  hashObj.update(Buffer.from(contentSample));
+  return hashObj.digest('hex');
 }
 
-/**
- * Get source snapshots for a run
- */
 export async function getSourceSnapshots(runId: string): Promise<SourceSnapshot[]> {
   const sources = await prisma.source.findMany({
     where: { runId },

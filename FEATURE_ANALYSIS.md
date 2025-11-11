@@ -1,9 +1,9 @@
-# IntelBox - Competitive Intelligence Platform
+# CompeteIQ - Competitive Intelligence Platform
 ## Feature Analysis & Implementation Status
 
 ## App Description
 
-**IntelBox** is an automated competitive intelligence platform that generates evidence-backed competitive analysis reports. The system:
+**CompeteIQ** is an automated competitive intelligence platform that generates evidence-backed competitive analysis reports. The system:
 
 1. **Discovers** relevant sources about competitors through web search (Tavily/SerpAPI)
 2. **Extracts** structured data from sources (capabilities, pricing, integrations, compliance)

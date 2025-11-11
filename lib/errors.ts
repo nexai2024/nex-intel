@@ -1,7 +1,7 @@
 /**
  * Custom error classes for better error handling
  */
-export class IntelBoxError extends Error {
+export class CompeteIQError extends Error {
   constructor(
     message: string,
     public statusCode: number = 500,
@@ -9,46 +9,46 @@ export class IntelBoxError extends Error {
     public details?: any
   ) {
     super(message);
-    this.name = 'IntelBoxError';
+    this.name = 'CompeteIQError';
   }
 }
 
-export class AuthenticationError extends IntelBoxError {
+export class AuthenticationError extends CompeteIQError {
   constructor(message: string = 'Authentication required') {
     super(message, 401, 'AUTHENTICATION_ERROR');
     this.name = 'AuthenticationError';
   }
 }
 
-export class AuthorizationError extends IntelBoxError {
+export class AuthorizationError extends CompeteIQError {
   constructor(message: string = 'Access denied') {
     super(message, 403, 'AUTHORIZATION_ERROR');
     this.name = 'AuthorizationError';
   }
 }
 
-export class NotFoundError extends IntelBoxError {
+export class NotFoundError extends CompeteIQError {
   constructor(message: string = 'Resource not found') {
     super(message, 404, 'NOT_FOUND_ERROR');
     this.name = 'NotFoundError';
   }
 }
 
-export class ValidationError extends IntelBoxError {
+export class ValidationError extends CompeteIQError {
   constructor(message: string, details?: any) {
     super(message, 400, 'VALIDATION_ERROR', details);
     this.name = 'ValidationError';
   }
 }
 
-export class RateLimitError extends IntelBoxError {
+export class RateLimitError extends CompeteIQError {
   constructor(message: string = 'Rate limit exceeded') {
     super(message, 429, 'RATE_LIMIT_ERROR');
     this.name = 'RateLimitError';
   }
 }
 
-export class ExternalServiceError extends IntelBoxError {
+export class ExternalServiceError extends CompeteIQError {
   constructor(service: string, message: string, statusCode: number = 502) {
     super(`${service} error: ${message}`, statusCode, 'EXTERNAL_SERVICE_ERROR', { service });
     this.name = 'ExternalServiceError';
@@ -58,8 +58,8 @@ export class ExternalServiceError extends IntelBoxError {
 /**
  * Error handler utility functions
  */
-export function handleError(error: any): IntelBoxError {
-  if (error instanceof IntelBoxError) {
+export function handleError(error: any): CompeteIQError {
+  if (error instanceof CompeteIQError) {
     return error;
   }
 
@@ -78,12 +78,12 @@ export function handleError(error: any): IntelBoxError {
           field: prismaError.meta?.field_name
         });
       default:
-        return new IntelBoxError('Database error occurred', 500, 'DATABASE_ERROR');
+        return new CompeteIQError('Database error occurred', 500, 'DATABASE_ERROR');
     }
   }
 
   if (error.name === 'PrismaClientUnknownRequestError') {
-    return new IntelBoxError('Database connection error', 503, 'DATABASE_CONNECTION_ERROR');
+    return new CompeteIQError('Database connection error', 503, 'DATABASE_CONNECTION_ERROR');
   }
 
   if (error.name === 'FetchError') {
@@ -91,7 +91,7 @@ export function handleError(error: any): IntelBoxError {
   }
 
   // Default error
-  return new IntelBoxError(
+  return new CompeteIQError(
     error.message || 'An unexpected error occurred',
     error.statusCode || 500
   );
@@ -100,7 +100,7 @@ export function handleError(error: any): IntelBoxError {
 /**
  * Logging utility
  */
-export function logError(error: IntelBoxError, context?: any) {
+export function logError(error: CompeteIQError, context?: any) {
   const logData = {
     error: {
       name: error.name,
@@ -123,7 +123,7 @@ export function logError(error: IntelBoxError, context?: any) {
 /**
  * API response helper for errors
  */
-export function createErrorResponse(error: IntelBoxError) {
+export function createErrorResponse(error: CompeteIQError) {
   return new Response(
     JSON.stringify({
       error: {

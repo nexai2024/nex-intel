@@ -1,12 +1,18 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
+import { ensureProjectFeatures } from '@/lib/features';
 
 export async function POST(req: Request) {
   try {
     const user = await requireAuth();
     const body = await req.json();
     const { inputs, ...projectData } = body;
+    const featuresList: string[] = Array.isArray(body.features)
+      ? body.features
+          .map((f: unknown) => (typeof f === 'string' ? f.trim() : ''))
+          .filter((f: string) => f.length > 0)
+      : [];
     
     // Prepare projectInputs data - ensure all required array fields are present
     const projectInputsData = inputs ? {
@@ -33,6 +39,10 @@ export async function POST(req: Request) {
         projectInputs: true
       }
     });
+
+    if (featuresList.length > 0) {
+      await ensureProjectFeatures(p.id, featuresList);
+    }
     
     return NextResponse.json({ id: p.id });
   } catch (error: any) {

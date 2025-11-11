@@ -1,11 +1,11 @@
 'use client';
 import { useState } from 'react';
 
-const demoReport = `# IntelBox Competitive Analysis Demo
+const demoReport = `# CompeteIQ Competitive Analysis Demo
 
 ## Executive Summary
 
-This demo showcases the evidence-first competitive intelligence that IntelBox provides. Every claim in our reports is backed by verifiable sources, making your competitive analysis credible and ready for board presentations.
+This demo showcases the evidence-first competitive intelligence that CompeteIQ provides. Every claim in our reports is backed by verifiable sources, making your competitive analysis credible and ready for board presentations.
 
 ## Competitor Landscape
 
@@ -31,7 +31,7 @@ This demo showcases the evidence-first competitive intelligence that IntelBox pr
 
 ## Capability Matrix
 
-| Feature | Stripe | Adyen | Paddle | IntelBox Finding |
+| Feature | Stripe | Adyen | Paddle | CompeteIQ Finding |
 |---------|--------|-------|--------|------------------|
 | API Documentation | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ | Market Standard |
 | Subscription Management | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ | **Differentiator** |
@@ -49,7 +49,7 @@ This demo showcases the evidence-first competitive intelligence that IntelBox pr
 | Adyen | $0 | 2.3% + €0.10 | $2,300 |
 | Paddle | $0 | 5% + 50¢ | $5,050 |
 
-**IntelBox Insight:** Adyen offers the most competitive pricing for high-volume transactions, while Paddle's merchant of record services justify their higher fees for SaaS companies.
+**CompeteIQ Insight:** Adyen offers the most competitive pricing for high-volume transactions, while Paddle's merchant of record services justify their higher fees for SaaS companies.
 
 ## Integration Ecosystem
 
@@ -127,7 +127,7 @@ This demo showcases the evidence-first competitive intelligence that IntelBox pr
 - Global Coverage (Adyen)
 - Developer Experience (Stripe)
 
-### Gaps & Opportunities (IntelBox Insights)
+### Gaps & Opportunities (CompeteIQ Insights)
 - **Unified Analytics** - No provider offers comprehensive cross-platform analytics
 - **Intelligent Payment Routing** - Opportunity to optimize costs automatically
 - **Compliance Automation** - Complex regulatory landscape creates value`;
@@ -195,6 +195,7 @@ export default function DemoPage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                 </tbody>
+                </table>
               );
             }
 
@@ -246,10 +247,10 @@ export default function DemoPage() {
     <main className="space-y-6">
       <header className="text-center py-8">
         <h1 className="text-3xl font-bold mb-4">
-          🚀 IntelBox Demo: Evidence-First Competitive Intelligence
+          🚀 CompeteIQ Demo: Evidence-First Competitive Intelligence
         </h1>
         <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-6">
-          Experience how IntelBox transforms competitive research with verifiable sources,
+          Experience how CompeteIQ transforms competitive research with verifiable sources,
           automated analysis, and actionable insights.
         </p>
         <div className="flex items-center justify-center gap-4">
@@ -357,7 +358,6 @@ export default function DemoPage() {
                 </div>
                 <InteractiveReportViewer
                   markdown={demoReport}
-                  runId="demo-report"
                   className="border-0 p-0 shadow-none"
                 />
               </div>
@@ -373,7 +373,7 @@ export default function DemoPage() {
             Ready to Get Your Own Competitive Intelligence?
           </h2>
           <p className="text-lg mb-6 opacity-90">
-            Start your first project and see how IntelBox can transform your competitive research.
+            Start your first project and see how CompeteIQ can transform your competitive research.
           </p>
           <div className="flex items-center justify-center gap-4">
             <a

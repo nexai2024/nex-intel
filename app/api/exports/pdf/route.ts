@@ -10,7 +10,7 @@ function mdToHtml(md: string) {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>IntelBox Competitive Analysis Report</title>
+  <title>CompeteIQ Competitive Analysis Report</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, Helvetica, sans-serif;
@@ -49,12 +49,12 @@ function mdToHtml(md: string) {
 </head>
 <body>
   <div class="header">
-    <h1>IntelBox Competitive Analysis Report</h1>
+    <h1>CompeteIQ Competitive Analysis Report</h1>
     <p>Generated on ${new Date().toLocaleDateString()}</p>
   </div>
   ${html}
   <div class="footer">
-    <p>© 2025 IntelBox - Evidence-first competitive intelligence. This report was automatically generated with source citations.</p>
+    <p>© 2025 CompeteIQ - Evidence-first competitive intelligence. This report was automatically generated with source citations.</p>
   </div>
 </body>
 </html>`;
@@ -113,7 +113,13 @@ export async function POST(req: Request) {
       ]
     };
 
-    browser = await puppeteer.launch(puppeteerOptions);
+    // Fix: 'headless' option should be boolean or 'shell', not 'new'
+    const fixedPuppeteerOptions = {
+      ...puppeteerOptions,
+      headless: true, // or false if you want a headed browser
+    };
+
+    browser = await puppeteer.launch(fixedPuppeteerOptions);
     const page = await browser.newPage();
 
     // Set content and wait for it to render
@@ -136,7 +142,7 @@ export async function POST(req: Request) {
       displayHeaderFooter: true,
       headerTemplate: `
         <div style="font-size:10px; color:#666; text-align:center; width:100%;">
-          IntelBox Competitive Analysis - Page <span class="pageNumber"></span>
+          CompeteIQ Competitive Analysis - Page <span class="pageNumber"></span>
         </div>
       `,
       footerTemplate: `
@@ -146,11 +152,13 @@ export async function POST(req: Request) {
       `
     });
 
-    return new Response(pdf, {
-      headers: {
-        'content-type': 'application/pdf',
-        'content-disposition': `attachment; filename="intelbox-report-${report.run.project.name}-${runId}.pdf"`,
-        'cache-control': 'no-cache, no-store, must-revalidate',
+    return new Response(
+      new Blob([pdf as unknown as ArrayBuffer], { type: 'application/pdf' }),
+      {
+        headers: {
+          'content-type': 'application/pdf',
+          'content-disposition': `attachment; filename="CompeteIQ-report-${report.run.project.name}-${runId}.pdf"`,
+          'cache-control': 'no-cache, no-store, must-revalidate',
         'pragma': 'no-cache',
         'expires': '0'
       }

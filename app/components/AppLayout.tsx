@@ -32,7 +32,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           <div className="p-4">
             <Link href="/" className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-600" />
-              <div className="font-bold" style={{ fontFamily: 'var(--font-display)' }}>IntelBox</div>
+              <div className="font-bold" style={{ fontFamily: 'var(--font-display)' }}>CompeteIQ</div>
             </Link>
           </div>
           <nav className="px-3 space-y-1">

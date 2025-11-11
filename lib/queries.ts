@@ -8,6 +8,7 @@ type QueryInputs = {
   description?: string;
   targetSegments?: string[];
   regions?: string[];
+  features?: string[];
   project?: { industry?: string | null; subIndustry?: string | null };
 };
 
@@ -32,6 +33,7 @@ export function buildQueries(inputs?: QueryInputs) {
     .slice(0, 3);
   const segments = (inputs?.targetSegments ?? []).map((s) => s.trim()).filter(Boolean);
   const competitors = (inputs?.competitors ?? []).map((c) => c.trim()).filter(Boolean);
+  const features = (inputs?.features ?? []).map((f) => f.trim()).filter(Boolean);
 
   // Product-centric queries
   if (product) {
@@ -66,6 +68,17 @@ export function buildQueries(inputs?: QueryInputs) {
   segments.forEach((segment) => {
     if (product) push(`${product} for ${segment}`);
     if (category) push(`${category} tools for ${segment}`);
+  });
+
+  // Feature-focused queries
+  features.forEach((feature) => {
+    if (product) push(`${product} ${feature}`);
+    if (category) {
+      push(`${category} tools with ${feature}`);
+      push(`${category} ${feature} comparison`);
+    }
+    push(`${feature} market overview`);
+    push(`${feature} competitor analysis`);
   });
 
   // Competitor deep dives

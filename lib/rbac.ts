@@ -1,6 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { AuthorizationError } from '@/lib/errors';
-import { TeamRole } from '@prisma/client';
+
+// Declare TeamRole type manually to resolve missing export from @prisma/client
+export type TeamRole = 'OWNER' | 'ADMIN' | 'EDITOR' | 'VIEWER';
 
 // Role hierarchy for permission checking
 const ROLE_HIERARCHY: Record<TeamRole, number> = {

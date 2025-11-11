@@ -28,7 +28,7 @@ export function Breadcrumbs({ items, className = '' }: BreadcrumbsProps) {
     <nav className={`flex items-center space-x-2 text-sm text-gray-500 ${className}`}>
       {items.map((item, index) => (
         <div key={index} className="flex items-center">
-          {index > 0 && <ChevronRightIcon className="w-4 h-4 text-gray-400" />}
+          {index > 0 && <ChevronRightIcon />}
           {item.href && !item.current ? (
             <Link
               href={item.href}

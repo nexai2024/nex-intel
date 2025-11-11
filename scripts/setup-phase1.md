@@ -1,6 +1,6 @@
-# IntelBox Phase 1 Setup Guide
+# CompeteIQ Phase 1 Setup Guide
 
-This guide will help you set up IntelBox Phase 1 features including authentication, credit system, PDF export, Notion integration, dashboard, and error handling.
+This guide will help you set up CompeteIQ Phase 1 features including authentication, credit system, PDF export, Notion integration, dashboard, and error handling.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ cp .env.example .env.local
 2. Fill in your environment variables:
 ```bash
 # Database
-DATABASE_URL="postgresql://username:password@localhost:5432/intelbox"
+DATABASE_URL="postgresql://username:password@localhost:5432/CompeteIQ"
 
 # Supabase Authentication
 NEXT_PUBLIC_SUPABASE_URL="your-supabase-project-url.supabase.co"
@@ -90,7 +90,7 @@ npx prisma generate
 npm run dev
 ```
 
-Visit http://localhost:3000 to access IntelBox.
+Visit http://localhost:3000 to access CompeteIQ.
 
 ## Phase 1 Features
 

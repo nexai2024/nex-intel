@@ -73,7 +73,7 @@ async function generateSampleInsights(runId: string) {
       content: `Analysis indicates a strong trend toward AI-powered automation across ${run.competitors.length} competitors in the ${run.project.industry || 'target'} market. 75% of analyzed competitors are now marketing AI features prominently.`,
       confidence: 0.87,
       metadata: {
-        model: 'IntelBox-AI-v2.1',
+        model: 'CompeteIQ-AI-v2.1',
         analyzedCompetitors: run.competitors.length,
         trendDirection: 'increasing',
         timeframe: '6 months'
@@ -88,7 +88,7 @@ async function generateSampleInsights(runId: string) {
       content: `Based on current pricing patterns and market trajectory, predict a 15-20% average price increase across the competitive landscape within the next 12 months, driven by enhanced AI capabilities and enterprise features.`,
       confidence: 0.72,
       metadata: {
-        model: 'IntelBox-AI-v2.1',
+        model: 'CompeteIQ-AI-v2.1',
         predictionHorizon: '12 months',
         confidenceFactors: ['historical_pricing_data', 'feature_evolution', 'market_positioning']
       },
@@ -102,7 +102,7 @@ async function generateSampleInsights(runId: string) {
       content: `Significant market opportunity identified in mid-market segment where current solutions show gaps in compliance features and integration capabilities. Recommend prioritizing SOC 2 compliance and HubSpot integration for competitive advantage.`,
       confidence: 0.91,
       metadata: {
-        model: 'IntelBox-AI-v2.1',
+        model: 'CompeteIQ-AI-v2.1',
         opportunityScore: 9.1,
         targetSegment: 'mid-market',
         recommendedFeatures: ['SOC 2 compliance', 'HubSpot integration']
@@ -117,7 +117,7 @@ async function generateSampleInsights(runId: string) {
       content: `Notable anomaly: ${run.competitors[0]?.name || 'Market leader'} significantly underinvests in mobile capabilities compared to peers, despite strong market demand. This could represent a strategic vulnerability or focus shift.`,
       confidence: 0.83,
       metadata: {
-        model: 'IntelBox-AI-v2.1',
+        model: 'CompeteIQ-AI-v2.1',
         anomalyType: 'feature_gap',
         affectedCompetitor: run.competitors[0]?.name,
         impactLevel: 'medium'

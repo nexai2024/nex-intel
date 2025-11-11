@@ -9,8 +9,10 @@ import { makeSearch } from '@/lib/search';
 import { extractCapabilities } from '@/lib/extract/capabilities';
 import { extractPricingV2 } from '@/lib/extract/pricing_v2';
 import { generateMarkdown } from '@/lib/report';
-import { detectSourceChanges, storeChangeDetection, checkForAlerts, scheduler } from '@/lib/monitoring';
+import { detectSourceChanges, storeChangeDetection, checkForAlerts } from '@/lib/monitoring';
 import { sendReportCompletionNotification } from '@/lib/notifications';
+import { ensureFeatureDefinitions } from '@/lib/features';
+import { canonicalFeatureName, normalizeFeature } from '@/lib/normalize';
 
 type RunStatus = 'NEW' | 'DISCOVERING' | 'EXTRACTING' | 'SYNTHESIZING' | 'QA' | 'COMPLETE' | 'ERROR' | 'SKIPPED';
 
@@ -25,7 +27,14 @@ export async function orchestrateRun(runId: string) {
     // 0) Load run + project with projectInputs
     const run = await prisma.run.findUnique({ 
       where: { id: runId }, 
-      include: { project: { include: { projectInputs: true } } } 
+      include: { 
+        project: { 
+          include: { 
+            projectInputs: true,
+            projectFeatures: { include: { featureDefinition: true } },
+          } 
+        } 
+      } 
     });
     if (!run) throw new Error(`Run not found: ${runId}`);
     if (run.status === 'SKIPPED') {
@@ -42,6 +51,10 @@ export async function orchestrateRun(runId: string) {
 
     // Get inputs from projectInputs relation (first item if array exists)
     const projectInput = run.project.projectInputs?.[0];
+    const projectFeatureDefs =
+      (run.project.projectFeatures ?? [])
+        .map((pf) => pf.featureDefinition)
+        .filter((def): def is NonNullable<typeof def> => Boolean(def));
     const inputKeywords = projectInput?.keywords || [];
     const inputCompetitors = projectInput?.competitors || [];
     const targetSegments = run.project.targetSegments || [];
@@ -57,6 +70,9 @@ export async function orchestrateRun(runId: string) {
     }
     if (targetSegments.length) {
       descriptionPieces.push(`Segments: ${targetSegments.join(', ')}`);
+    }
+    if (projectFeatureDefs.length > 0) {
+      descriptionPieces.push(`Core features: ${projectFeatureDefs.map((f) => f.name).join(', ')}`);
     }
     const derivedDescription = descriptionPieces.filter(Boolean).join(' ');
 
@@ -80,6 +96,9 @@ export async function orchestrateRun(runId: string) {
       .flatMap((name) => name.split(/[\s\/\-|]+/))
       .map((t) => t.trim().toLowerCase())
       .filter((t) => t.length > 2);
+    const featureTokens = projectFeatureDefs
+      .map((def) => def.name?.toLowerCase())
+      .filter((t): t is string => Boolean(t && t.length > 2));
     const relevanceTokens = new Set(
       [
         ...productTokens,
@@ -87,6 +106,7 @@ export async function orchestrateRun(runId: string) {
         ...keywordTokens,
         ...descriptionTokens,
         ...competitorTokens,
+        ...featureTokens,
         ...targetSegments.map((s) => s.toLowerCase()),
       ].filter(Boolean)
     );
@@ -100,6 +120,7 @@ export async function orchestrateRun(runId: string) {
       description: derivedDescription || undefined,
       targetSegments: targetSegments.length > 0 ? targetSegments : undefined,
       regions: regions.length > 0 ? regions : undefined,
+      features: projectFeatureDefs.map((f) => f.name).filter((name): name is string => Boolean(name)),
       project: { industry: run.project.industry, subIndustry: run.project.subIndustry }
     });
 
@@ -245,7 +266,14 @@ export async function orchestrateRun(runId: string) {
 
     // 3) Entity extraction
     const capWrites: { runId: string; category: string; name: string; normalized: string }[] = [];
-    const featureCandidates: { runId: string; name: string; normalized: string; sourceId: string; description?: string }[] = [];
+    const featureCandidates: {
+      runId: string;
+      name: string;
+      normalized: string;
+      sourceId: string;
+      description?: string;
+      competitorId?: string | null;
+    }[] = [];
     const compWrites: { runId: string; framework: string; status?: string | null; notes?: string | null }[] = [];
     const intWrites: { runId: string; name: string; vendor?: string | null; category?: string | null; url?: string | null }[] = [];
     const priceWrites: { runId: string; competitorId: string; planName: string; priceMonthly?: number | null; priceAnnual?: number | null; transactionFee?: number | null; currency?: string | null }[] = [];
@@ -255,9 +283,37 @@ export async function orchestrateRun(runId: string) {
 
     // Map competitor by brand name guess
     const competitorByName = new Map<string, string>();
+    const seededCompetitors = await prisma.competitor.findMany({ where: { runId } });
+    for (const comp of seededCompetitors) {
+      competitorByName.set(comp.name, comp.id);
+    }
 
     for (const s of fetched) {
       const text = s.content;
+      const brand = guessBrandName(s.title, s.domain);
+      let compId: string | null = null;
+      if (brand && isLikelyCompetitorName(brand, { title: s.title, domain: s.domain })) {
+        const cached = competitorByName.get(brand);
+        if (cached) {
+          compId = cached;
+        } else {
+          try {
+            const competitor = await prisma.competitor.upsert({
+              where: { runId_name: { runId, name: brand } },
+              update: {},
+              create: {
+                runId,
+                name: brand,
+                website: s.domain ? `https://${s.domain}` : undefined,
+              },
+            });
+            compId = competitor.id;
+            competitorByName.set(brand, competitor.id);
+          } catch (err) {
+            console.warn(`[Orchestrator] Failed to upsert competitor ${brand}:`, err);
+          }
+        }
+      }
 
       // Capabilities
       for (const c of extractCapabilities(text)) {
@@ -267,7 +323,8 @@ export async function orchestrateRun(runId: string) {
           name: c.name,
           normalized: c.normalized,
           sourceId: s.id,
-          description: extractFeatureDescription(text, c.name) ?? `Mentioned under ${c.category}`
+          competitorId: compId,
+          description: extractFeatureDescription(text, c.mention) ?? `Mentioned under ${c.category}`,
         });
       }
 
@@ -287,24 +344,10 @@ export async function orchestrateRun(runId: string) {
         }
       }
 
-      // Competitor guess (create if new)
-      const brand = guessBrandName(s.title, s.domain);
-      if (brand && !competitorByName.has(brand)) {
-        try {
-          const created = await prisma.competitor.create({
-            data: { runId, name: brand, website: s.domain ? `https://${s.domain}` : undefined }
-          });
-          competitorByName.set(brand, created.id);
-        } catch {
-          // ignore duplicates/races (unique constraint on runId+name)
-        }
-      }
-
       // Pricing extraction if page looks like pricing
       if (looksLikePricingPage(s.title, text)) {
         try {
           const rows = extractPricingV2(text);
-          const compId = brand ? competitorByName.get(brand) : null;
           if (compId) {
             for (const r of rows) {
               priceWrites.push({
@@ -334,17 +377,53 @@ export async function orchestrateRun(runId: string) {
     });
 
     // Persist extracted entities
-    const featureByNormalized = new Map<string, { runId: string; name: string; normalized: string; sourceId: string; description?: string }>();
+    const featureByKey = new Map<
+      string,
+      {
+        runId: string;
+        name: string;
+        normalized: string;
+        sourceId: string;
+        description?: string;
+        competitorId?: string | null;
+      }
+    >();
     for (const candidate of featureCandidates) {
-      if (!featureByNormalized.has(candidate.normalized)) {
-        featureByNormalized.set(candidate.normalized, candidate);
+      const key = `${candidate.competitorId ?? 'global'}|${candidate.normalized}`;
+      if (!featureByKey.has(key)) {
+        featureByKey.set(key, candidate);
       }
     }
-    const featureCreates = Array.from(featureByNormalized.values());
+    const featureCreates = Array.from(featureByKey.values());
+
+    const featureDefinitions = featureCreates.length
+      ? await ensureFeatureDefinitions(
+          featureCreates.map((f) => f.name),
+          { origin: 'COMPETITOR' }
+        )
+      : [];
+    const featureDefByNormalized = new Map(
+      featureDefinitions.map((def) => [def.normalized, def])
+    );
+    const featureCreatesWithDefs = featureCreates.map((f) => {
+      const normalized = normalizeFeature(f.name);
+      const def = featureDefByNormalized.get(normalized);
+      return {
+        runId: f.runId,
+        name: f.name,
+        normalized,
+        description: f.description,
+        sourceId: f.sourceId,
+        competitorId: f.competitorId ?? null,
+        featureDefinitionId: def?.id,
+        origin: 'COMPETITOR' as const,
+        confidence: 0.6,
+      };
+    });
 
     await prisma.$transaction([
       ...capUnique.map((c) => prisma.capability.create({ data: c })),
-      ...featureCreates.map((f) => prisma.feature.create({ data: f })),
+      ...featureCreatesWithDefs.map((f) => prisma.feature.create({ data: f })),
       ...compWrites.map((x) => prisma.complianceItem.create({ data: x })),
       ...intWrites.map((x) => prisma.integration.create({ data: x })),
       ...priceWrites.map((x) => prisma.pricingPoint.create({ data: x }))
@@ -359,6 +438,23 @@ export async function orchestrateRun(runId: string) {
     const allPricing = await prisma.pricingPoint.findMany({ where: { runId }, include: { competitor: true } });
     const allIntegrations = await prisma.integration.findMany({ where: { runId } });
     const allCompliance = await prisma.complianceItem.findMany({ where: { runId } });
+    const allFeatures = await prisma.feature.findMany({
+      where: { runId },
+      include: { featureDefinition: true, competitor: true }
+    });
+    const historicalWhere: any = {
+      featureDefinitionId: { not: null },
+      runId: { not: runId }
+    };
+    if (run.project.industry) {
+      historicalWhere.run = { project: { industry: run.project.industry } };
+    }
+    const historicalFeatures = await prisma.feature.findMany({
+      where: historicalWhere,
+      orderBy: { createdAt: 'desc' },
+      take: 300,
+      include: { featureDefinition: true, competitor: true }
+    });
 
     const capByKey = groupBy(allCaps, (c) => `${c.category}|${c.normalized.toLowerCase()}`);
     const capTotal = allCaps.length;
@@ -392,25 +488,156 @@ export async function orchestrateRun(runId: string) {
       }
     }
 
-    // Gaps: user keywords not found among normalized caps
+    const presentFeatures = new Set<string>();
+    for (const cap of allCaps) {
+      const normalized = normalizeFeature(cap.normalized);
+      if (normalized) presentFeatures.add(normalized);
+    }
+    for (const feat of allFeatures) {
+      const normalized =
+        feat.featureDefinition?.normalized ??
+        normalizeFeature(feat.normalized ?? feat.name);
+      if (normalized) presentFeatures.add(normalized);
+    }
+
+    // Gaps: user-declared features not observed in market data
+    const declaredFeatureSet = new Set<string>();
+    for (const def of projectFeatureDefs) {
+      const norm = normalizeFeature(def.normalized ?? def.name ?? '');
+      if (!norm) continue;
+      declaredFeatureSet.add(norm);
+      if (!presentFeatures.has(norm)) {
+        findings.push({
+          kind: 'GAP',
+          text: `Feature gap: "${def.name}" was not observed across the analysed competitor set. Validate whether the market under-indexes this capability or if messaging needs amplification.`,
+          confidence: 0.6,
+          citations: [],
+        });
+      }
+    }
+
+    // Gaps: important keywords not found in capabilities or features
     const rawKeywords: unknown[] = projectInput?.keywords || [];
-    const wants = new Set(
+    const keywordWants = new Set(
       rawKeywords
         .filter((s): s is string => typeof s === 'string')
-        .map(normalizeWord)
+        .map((s) => normalizeFeature(s))
     );
-    if (wants.size && capTotal >= 3) {
-      const present = new Set(allCaps.map((c) => normalizeWord(c.normalized)));
-      for (const w of wants) {
-        if (!present.has(w)) {
+    if (keywordWants.size && capTotal >= 3) {
+      for (const kw of keywordWants) {
+        if (!kw || declaredFeatureSet.has(kw)) continue;
+        if (!presentFeatures.has(kw)) {
+          const display = canonicalFeatureName(kw);
           findings.push({
             kind: 'GAP',
-            text: `Market gap: "${w}" was not found in competitor capabilities. This could represent an opportunity or indicate it's not a priority for the market.`,
-            confidence: 0.65,
-            citations: []
+            text: `Market gap: "${display}" did not appear in competitor capabilities or feature narratives. This could represent whitespace or signal a positioning opportunity.`,
+            confidence: 0.62,
+            citations: [],
           });
         }
       }
+    }
+
+    // Feature suggestions from competitive landscape (current + historical)
+    const featureSuggestionMap = new Map<
+      string,
+      {
+        name: string;
+        normalized: string;
+        competitors: Set<string>;
+        citations: Set<string>;
+        currentCount: number;
+        historicalCount: number;
+      }
+    >();
+
+    const recordFeatureEvidence = (
+      normalized: string | null | undefined,
+      name: string | null | undefined,
+      competitorName: string | null | undefined,
+      sourceId: string | null | undefined,
+      bucket: 'current' | 'historical'
+    ) => {
+      if (!normalized && !name) return;
+      const norm = normalizeFeature(normalized ?? name ?? '');
+      if (!norm) return;
+      const display = canonicalFeatureName(name ?? normalized ?? norm);
+      const entry =
+        featureSuggestionMap.get(norm) ??
+        {
+          name: display,
+          normalized: norm,
+          competitors: new Set<string>(),
+          citations: new Set<string>(),
+          currentCount: 0,
+          historicalCount: 0,
+        };
+      if (competitorName) {
+        entry.competitors.add(competitorName);
+      }
+      if (bucket === 'current') {
+        entry.currentCount += 1;
+        if (sourceId) {
+          entry.citations.add(sourceId);
+        }
+      } else {
+        entry.historicalCount += 1;
+      }
+      featureSuggestionMap.set(norm, entry);
+    };
+
+    for (const feat of allFeatures) {
+      recordFeatureEvidence(
+        feat.featureDefinition?.normalized ?? feat.normalized ?? feat.name,
+        feat.featureDefinition?.name ?? feat.name,
+        feat.competitor?.name ?? null,
+        feat.sourceId,
+        'current'
+      );
+    }
+    for (const feat of historicalFeatures) {
+      recordFeatureEvidence(
+        feat.featureDefinition?.normalized ?? feat.normalized ?? feat.name,
+        feat.featureDefinition?.name ?? feat.name,
+        feat.competitor?.name ?? null,
+        null,
+        'historical'
+      );
+    }
+
+    const featureSuggestions = Array.from(featureSuggestionMap.values())
+      .filter((entry) => !declaredFeatureSet.has(entry.normalized))
+      .sort(
+        (a, b) =>
+          b.currentCount + b.historicalCount - (a.currentCount + a.historicalCount)
+      )
+      .slice(0, 5);
+
+    for (const suggestion of featureSuggestions) {
+      const marketMentions = [];
+      if (suggestion.currentCount > 0) {
+        marketMentions.push(
+          `${suggestion.currentCount} competitor${suggestion.currentCount > 1 ? 's' : ''} in this run`
+        );
+      }
+      if (suggestion.historicalCount > 0) {
+        marketMentions.push(
+          `${suggestion.historicalCount} sightings in prior analyses`
+        );
+      }
+      if (marketMentions.length === 0) continue;
+      const competitorExamples = Array.from(suggestion.competitors).slice(0, 3);
+      const exampleText = competitorExamples.length
+        ? ` (e.g., ${competitorExamples.join(', ')})`
+        : '';
+      findings.push({
+        kind: 'INSIGHT',
+        text: `Opportunity: "${suggestion.name}" appears across ${marketMentions.join(
+          ' and '
+        )}${exampleText}. Consider adding or strengthening this capability to keep pace with the market.`,
+        confidence: suggestion.currentCount > 0 ? 0.7 : 0.55,
+        citations: Array.from(suggestion.citations).slice(0, 3),
+      });
     }
 
     // Differentiators: appear once or rarely
@@ -570,7 +797,7 @@ export async function orchestrateRun(runId: string) {
     // Send email notification to user
     try {
       const user = await prisma.user.findUnique({
-        where: { id: run.project.userId }
+        where: { id: run.project.userId ?? undefined }
       });
 
       if (user?.email) {
@@ -688,13 +915,132 @@ function looksLikePricingPage(title?: string | null, text?: string) {
 function guessBrandName(title?: string | null, domain?: string | null) {
   if (title) {
     const cleaned = title.replace(/\s*[-–|·].*$/, '').trim();
-    if (cleaned && cleaned.length <= 50) return cleaned;
+    const sanitized = sanitizeBrandCandidate(cleaned);
+    if (sanitized && sanitized.length <= 50) return sanitized;
   }
   if (domain) {
-    const base = domain.replace(/^www\./, '').split('.')[0];
-    if (base && base.length >= 3) return base.charAt(0).toUpperCase() + base.slice(1);
+    const fromDomain = deriveBrandFromDomain(domain);
+    if (fromDomain) return fromDomain;
   }
   return null;
+}
+
+const SKIP_DOMAIN_LABELS = new Set(['www', 'blog', 'news', 'learn', 'info', 'docs', 'support', 'help']);
+
+function deriveBrandFromDomain(domain: string) {
+  const trimmed = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').toLowerCase();
+  const parts = trimmed.split('.').filter(Boolean);
+  if (parts.length === 0) return null;
+
+  // Handle common country-code TLDs (e.g., co.uk)
+  const tld = parts.slice(-2).join('.');
+  const ccTLDs = new Set(['co.uk', 'com.au', 'com.br', 'com.mx']);
+  const limit = ccTLDs.has(tld) ? parts.length - 2 : parts.length - 1;
+
+  let candidate: string | null = null;
+  for (let i = 0; i < limit; i++) {
+    const label = parts[i];
+    if (!label || SKIP_DOMAIN_LABELS.has(label)) continue;
+    candidate = label;
+  }
+
+  if (!candidate) {
+    candidate = parts[limit - 1] ?? parts[0];
+  }
+  if (!candidate) return null;
+
+  return candidate.length >= 2 ? candidate.charAt(0).toUpperCase() + candidate.slice(1) : null;
+}
+
+function sanitizeBrandCandidate(candidate: string) {
+  let result = candidate.trim();
+  if (!result) return '';
+  result = result.replace(/\b(pricing|plan|plans|features|feature|reviews?|case study|overview|comparison|guide)\b$/i, '').trim();
+  result = result.replace(/\b(vs|versus)\b$/i, '').trim();
+  return result;
+}
+
+const AGGREGATOR_DOMAINS = new Set([
+  'medium.com',
+  'substack.com',
+  'youtube.com',
+  'www.youtube.com',
+  'x.com',
+  'twitter.com',
+  'linkedin.com',
+  'facebook.com',
+  'news.ycombinator.com',
+  'reddit.com',
+  'github.com',
+  'dev.to',
+  'hashnode.dev',
+  'producthunt.com',
+  'stackshare.io',
+  'g2.com',
+  'g2crowd.com',
+  'capterra.com',
+  'getapp.com',
+  'wordpress.com',
+  'blogspot.com',
+  'notion.site',
+]);
+
+const COMPETITOR_NAME_STOPWORDS = [
+  /\btop\s*\d+/i,
+  /\bbest\b/i,
+  /\balternatives?\b/i,
+  /\bcomparison\b/i,
+  /\bcompare\b/i,
+  /\bvs\b/i,
+  /\bversus\b/i,
+  /\bguide\b/i,
+  /\boverview\b/i,
+  /\btutorial\b/i,
+  /\broundup\b/i,
+  /\bchecklist\b/i,
+  /\btrends?\b/i,
+  /\bnews\b/i,
+  /\breview(s)?\b/i,
+  /\bcase study\b/i,
+  /\bhow to\b/i,
+  /\bwhat is\b/i,
+];
+
+function isLikelyCompetitorName(
+  name: string,
+  opts: { title?: string | null; domain?: string | null }
+) {
+  const candidate = name.trim();
+  if (!candidate) return false;
+  if (candidate.length < 3) return false;
+  if (candidate.split(/\s+/).length > 6) return false;
+
+  const lowerCandidate = candidate.toLowerCase();
+  if (COMPETITOR_NAME_STOPWORDS.some((re) => re.test(lowerCandidate))) return false;
+
+  const title = opts.title?.toLowerCase() ?? '';
+  if (title) {
+    if (
+      /\b(top\s*\d+|best|alternatives?|roundup|guide|tutorial|overview|list|blog|checklist|trends?|news|comparison)\b/.test(
+        title
+      )
+    ) {
+      if (!/\bpricing\b/.test(lowerCandidate) && !/\bplatform\b/.test(lowerCandidate)) {
+        return false;
+      }
+    }
+  }
+
+  const domain = opts.domain?.toLowerCase() ?? '';
+  if (domain) {
+    for (const agg of AGGREGATOR_DOMAINS) {
+      if (domain === agg || domain.endsWith(`.${agg}`)) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 function inferIntegrationCategory(vendor: string): string | undefined {

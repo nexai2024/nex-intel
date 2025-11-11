@@ -32,7 +32,10 @@ export function MarkdownWithCitations({ markdown }: { markdown: string }) {
 
   return (
     <>
-      <article className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: html }} />
+      <article
+        className="prose dark:prose-invert max-w-none"
+        dangerouslySetInnerHTML={{ __html: typeof html === 'string' ? html : '' }}
+      />
       <EvidenceDrawer open={open} onClose={() => setOpen(false)} citationIds={citeIds} />
     </>
   );

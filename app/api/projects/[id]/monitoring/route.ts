@@ -107,21 +107,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     // Check if project has scheduled monitoring
-    const scheduledTasks = scheduler.tasks.filter(
-      task => task.type === 'AUTO_RERUN' && task.projectId === projectId
+    const scheduledTasks = (Array.isArray((scheduler as any).getTasks?.())
+      ? (scheduler as any).getTasks()
+      : []
+    ).filter(
+      (task: any) => task && task.type === 'AUTO_RERUN' && task.projectId === projectId
     );
 
     const isMonitored = scheduledTasks.length > 0;
-    const nextRun = isMonitored ? Math.min(...scheduledTasks.map(t => t.scheduledFor.getTime())) : null;
+
+    const nextRun = isMonitored ? Math.min(...scheduledTasks.map((t: { scheduledFor: { getTime: () => any; }; }) => t.scheduledFor.getTime())) : null;
 
     return NextResponse.json({
       isMonitored,
       scheduledTasks: scheduledTasks.length,
       nextRun: nextRun ? new Date(nextRun).toISOString() : null,
       upcomingRuns: scheduledTasks
-        .sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime())
+        .sort((a: { scheduledFor: { getTime: () => number; }; }, b: { scheduledFor: { getTime: () => number; }; }) => a.scheduledFor.getTime() - b.scheduledFor.getTime())
         .slice(0, 5)
-        .map(task => ({
+        .map((task: { id: any; scheduledFor: { toISOString: () => any; }; priority: any; }) => ({
           id: task.id,
           scheduledFor: task.scheduledFor.toISOString(),
           priority: task.priority

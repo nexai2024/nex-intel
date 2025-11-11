@@ -15,15 +15,15 @@ export function OnboardingModal({ isOpen, onClose, userFirstName }: OnboardingMo
 
   const onboardingSteps = [
     {
-      title: 'Welcome to IntelBox!',
+      title: 'Welcome to CompeteIQ!',
       subtitle: `Hi ${userFirstName || 'there'}! Let's get you started with evidence-first competitive intelligence.`,
       content: (
         <div className="space-y-4">
           <p className="text-gray-600">
-            IntelBox automatically generates comprehensive competitive analysis reports with verifiable source citations.
+            CompeteIQ automatically generates comprehensive competitive analysis reports with verifiable source citations.
           </p>
           <div className="bg-blue-50 p-4 rounded-lg">
-            <h4 className="font-medium text-blue-900 mb-2">What makes IntelBox different:</h4>
+            <h4 className="font-medium text-blue-900 mb-2">What makes CompeteIQ different:</h4>
             <ul className="text-sm text-blue-800 space-y-1">
               <li>• Every claim includes verifiable citations</li>
               <li>• Automated analysis saves you hours of research</li>
@@ -40,10 +40,10 @@ export function OnboardingModal({ isOpen, onClose, userFirstName }: OnboardingMo
       content: (
         <div className="space-y-4">
           <p className="text-gray-600">
-            Start by creating a project for your product or service. This helps IntelBox focus the analysis on your specific competitive landscape.
+            Start by creating a project for your product or service. This helps CompeteIQ focus the analysis on your specific competitive landscape.
           </p>
           <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium mb-2">Project inputs help IntelBox understand:</h4>
+            <h4 className="font-medium mb-2">Project inputs help CompeteIQ understand:</h4>
             <ul className="text-sm text-gray-700 space-y-1">
               <li>• Your product description and value proposition</li>
               <li>• Key features and keywords to track</li>
@@ -67,11 +67,11 @@ export function OnboardingModal({ isOpen, onClose, userFirstName }: OnboardingMo
     },
     {
       title: 'Run Your First Analysis',
-      subtitle: 'Watch as IntelBox discovers, extracts, and synthesizes competitive intelligence.',
+      subtitle: 'Watch as CompeteIQ discovers, extracts, and synthesizes competitive intelligence.',
       content: (
         <div className="space-y-4">
           <p className="text-gray-600">
-            IntelBox follows a 5-step process to generate comprehensive competitive analysis:
+            CompeteIQ follows a 5-step process to generate comprehensive competitive analysis:
           </p>
           <div className="space-y-3">
             <div className="flex items-start gap-3">
@@ -158,7 +158,7 @@ export function OnboardingModal({ isOpen, onClose, userFirstName }: OnboardingMo
       content: (
         <div className="space-y-4">
           <p className="text-gray-600">
-            IntelBox can automatically re-run your analysis to detect changes in the competitive landscape:
+            CompeteIQ can automatically re-run your analysis to detect changes in the competitive landscape:
           </p>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
@@ -308,7 +308,7 @@ export function OnboardingModal({ isOpen, onClose, userFirstName }: OnboardingMo
   }
 
   function skipOnboarding() {
-    localStorage.setItem('intelbox-onboarding-completed', 'true');
+    localStorage.setItem('CompeteIQ-onboarding-completed', 'true');
     onClose();
   }
 

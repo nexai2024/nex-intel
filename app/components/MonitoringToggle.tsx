@@ -134,7 +134,7 @@ export function MonitoringToggle({ projectId }: { projectId: string }) {
 
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
             <div className="text-sm text-blue-800">
-              <strong>How it works:</strong> IntelBox will automatically re-run your competitive analysis every 7 days, alerting you to important changes in the competitive landscape.
+              <strong>How it works:</strong> CompeteIQ will automatically re-run your competitive analysis every 7 days, alerting you to important changes in the competitive landscape.
             </div>
           </div>
         </div>

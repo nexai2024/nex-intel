@@ -30,8 +30,8 @@ export async function POST(request: NextRequest) {
         userId: demoUser.id,
         query: query.trim(),
         intent: extractIntent(query),
-        context: context || null,
-        result: null // Will be filled after processing
+        context: context === undefined ? undefined : context,
+        result: undefined // Will be filled after processing
       }
     });
 

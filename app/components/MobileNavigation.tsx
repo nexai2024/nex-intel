@@ -35,7 +35,7 @@ export function MobileNavigation({ isOpen, onClose }: MobileNavigationProps) {
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-indigo-500 to-fuchsia-600" />
               <div className="font-bold" style={{ fontFamily: 'var(--font-display)' }}>
-                IntelBox
+                CompeteIQ
               </div>
             </div>
             <button

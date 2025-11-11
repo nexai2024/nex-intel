@@ -51,7 +51,7 @@ export async function GET(
     if (error instanceof HttpError) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.statusCode }
+        { status: error.status }
       );
     }
     return NextResponse.json(
@@ -137,7 +137,7 @@ export async function PUT(
     if (error instanceof HttpError) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.statusCode }
+        { status: error.status }
       );
     }
     return NextResponse.json(

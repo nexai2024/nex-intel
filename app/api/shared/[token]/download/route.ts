@@ -51,7 +51,7 @@ export async function GET(
     const pdfContent = generateSimplePDF(share.report.mdContent, share.report.headline, share.project.name);
 
     // Return the PDF as a downloadable file
-    return new NextResponse(pdfContent, {
+    return new NextResponse(Buffer.from(pdfContent), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${share.project.name} - ${share.report.headline}.pdf"`,
@@ -62,7 +62,7 @@ export async function GET(
     if (error instanceof HttpError) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.statusCode }
+        { status: error.status }
       );
     }
     return NextResponse.json(

@@ -18,9 +18,21 @@ export default function ProjectDetail({ params }: { params: Promise<{ id: string
     })();
   }, [params]);
   useEffect(() => {
+    if (!projectId) return;
     (async () => {
-      const data = await fetch(`/api/projects/${projectId}/runs`).then(r => r.json());
-      setRuns(data);
+      try {
+        const res = await fetch(`/api/projects/${projectId}/runs`);
+        if (!res.ok) {
+          console.error('Failed to fetch runs', await res.text());
+          setRuns([]);
+          return;
+        }
+        const data = await res.json();
+        setRuns(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error loading runs', err);
+        setRuns([]);
+      }
     })();
   }, [projectId]);
 

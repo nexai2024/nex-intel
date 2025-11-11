@@ -7,7 +7,7 @@ export function useOnboarding() {
 
   useEffect(() => {
     // Check if user has completed onboarding
-    const hasCompletedOnboarding = localStorage.getItem('intelbox-onboarding-completed') === 'true';
+    const hasCompletedOnboarding = localStorage.getItem('CompeteIQ-onboarding-completed') === 'true';
 
     // Fetch current user
     fetch('/api/auth/me')
@@ -28,7 +28,7 @@ export function useOnboarding() {
 
   const closeOnboarding = () => {
     setShowOnboarding(false);
-    localStorage.setItem('intelbox-onboarding-completed', 'true');
+    localStorage.setItem('CompeteIQ-onboarding-completed', 'true');
   };
 
   return {

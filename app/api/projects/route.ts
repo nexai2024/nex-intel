@@ -56,7 +56,7 @@ export async function GET(req: Request) {
         projects.map(async (project) => {
           const stats = await prisma.run.aggregate({
             where: { projectId: project.id },
-            _count: { select: { id: true } },
+            _count: { id: true },
             _max: { createdAt: true },
           });
 
@@ -76,7 +76,8 @@ export async function GET(req: Request) {
           return {
             id: project.id,
             name: project.name,
-            category: project.category,
+            // category may not exist on type, fallback to undefined if not present
+            category: (project as any).category,
             createdAt: project.createdAt,
             teamId: project.teamId,
             team: project.team,

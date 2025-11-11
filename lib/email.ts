@@ -1,4 +1,3 @@
-import { EmailService } from '@/lib/email/providers';
 import { ResendProvider } from '@/lib/email/providers/resend';
 import { SendGridProvider } from '@/lib/email/providers/sendgrid';
 import { AWSESProvider } from '@/lib/email/providers/ses';

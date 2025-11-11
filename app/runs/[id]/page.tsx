@@ -105,7 +105,12 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
         if (!res.ok) {
           const error = await res.json().catch(() => ({ error: 'Failed to fetch status' }));
           console.error('Status fetch error:', error);
-          setStatus({ status: 'ERROR', createdAt: new Date().toISOString(), lastNote: error.error || 'Failed to fetch status' });
+          setStatus({
+            status: 'ERROR',
+            createdAt: new Date().toISOString(),
+            // @ts-expect-error: lastNote is not officially typed but used for display
+            lastNote: error.error || 'Failed to fetch status'
+          });
           return;
         }
         const s = await res.json();
@@ -129,7 +134,11 @@ export default function RunPage({ params }: { params: Promise<{ id: string }> })
         }
       } catch (err) {
         console.error('Polling error:', err);
-        setStatus({ status: 'ERROR', createdAt: new Date().toISOString(), lastNote: 'Failed to fetch status' });
+        setStatus(prev => ({
+          ...(typeof prev === 'object' && prev !== null ? prev : {}),
+          status: 'ERROR',
+          createdAt: new Date().toISOString()
+        }));
       }
     }
     poll();

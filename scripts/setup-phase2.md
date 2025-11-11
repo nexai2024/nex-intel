@@ -1,6 +1,6 @@
-# IntelBox Phase 2 Setup Guide
+# CompeteIQ Phase 2 Setup Guide
 
-This guide will help you set up IntelBox Phase 2 features including real-time monitoring, email notifications, enhanced reporting, and improved user onboarding.
+This guide will help you set up CompeteIQ Phase 2 features including real-time monitoring, email notifications, enhanced reporting, and improved user onboarding.
 
 ## Prerequisites
 
@@ -110,7 +110,7 @@ The scheduler will:
 #### E. Test Onboarding Flow
 1. Clear the onboarding completion flag:
    ```javascript
-   localStorage.removeItem('intelbox-onboarding-completed');
+   localStorage.removeItem('CompeteIQ-onboarding-completed');
    ```
 2. Refresh the page
 3. Go through the 6-step onboarding process
@@ -159,7 +159,7 @@ The scheduler will:
    - Look for "Change detection completed" logs
 
 4. **Onboarding not appearing**
-   - Clear browser localStorage: `localStorage.removeItem('intelbox-onboarding-completed')`
+   - Clear browser localStorage: `localStorage.removeItem('CompeteIQ-onboarding-completed')`
    - Check if user is properly authenticated
    - Verify the `/api/auth/me` endpoint works
    - Look for JavaScript errors in console
@@ -174,7 +174,7 @@ The scheduler will:
 
 Enable debug logging by setting:
 ```bash
-DEBUG=intelbox:* npm run dev
+DEBUG=CompeteIQ:* npm run dev
 ```
 
 This will show detailed logs for:

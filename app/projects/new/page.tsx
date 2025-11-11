@@ -17,6 +17,7 @@ export default function NewProject() {
     complianceNeeds: '' as any,
     keywords: '',
     competitorSeeds: '',
+    features: '',
   });
   const { withLoading } = useLoading();
 
@@ -35,6 +36,10 @@ export default function NewProject() {
     }
 
     try {
+      const featureList = form.features
+        .split(/[\n,]+/)
+        .map((s) => s.trim())
+        .filter(Boolean);
       const res = await withLoading(
         fetch('/api/projects/create', {
           method: 'POST', headers: { 'content-type': 'application/json' },
@@ -49,6 +54,7 @@ export default function NewProject() {
             pricingModel: form.pricingModel || null,
             salesMotion: form.salesMotion || null,
             complianceNeeds: (form.complianceNeeds || '').split(',').map((s: string) => s.trim()).filter(Boolean),
+            features: featureList,
             inputs: {
               keywords: form.keywords.split(',').map((s: string) => s.trim()).filter(Boolean),
               competitors: form.competitorSeeds.split(',').map((s: string) => s.trim()).filter(Boolean),
@@ -129,6 +135,18 @@ export default function NewProject() {
       <section className="card p-4 grid sm:grid-cols-2 gap-3">
         <label> Keywords (comma-separated) <input value={form.keywords} onChange={e => setForm({ ...form, keywords: e.target.value })} placeholder="billing, webhooks, observability" /> </label>
         <label> Known Competitors (comma-separated) <input value={form.competitorSeeds} onChange={e => setForm({ ...form, competitorSeeds: e.target.value })} placeholder="Stripe, Adyen, Paddle" /> </label>
+        <label className="sm:col-span-2">
+          Core Product Features (comma or newline separated)
+          <textarea
+            value={form.features}
+            onChange={(e) => setForm({ ...form, features: e.target.value })}
+            placeholder="Usage analytics, Role-based access control, Audit logging"
+            rows={3}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            We use this list as the authoritative product capability set. It seeds gap analysis and grows the global feature catalog.
+          </p>
+        </label>
       </section>
 
       <div className="flex gap-2">

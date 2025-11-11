@@ -1,78 +1,76 @@
-import { prisma } from '@/lib/prisma';
 import { orchestrateRun } from '@/app/api/runs/orchestrator';
-import { getCreditUsage } from '@/lib/credits';
+import { getCreditUsage, consume } from '@/lib/credits';
 import { logError } from '@/lib/errors';
+import { prisma } from '@/lib/prisma';
 
 /**
- * Scheduled monitoring system for automatic re-runs
+ * Scheduled monitoring system for automatic re-runs.
  */
 
-interface ScheduledTask {
+export interface ScheduledTask {
   id: string;
   type: 'AUTO_RERUN' | 'EMAIL_NOTIFICATION' | 'CLEANUP';
   projectId?: string;
   runId?: string;
   scheduledFor: Date;
   priority: number;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 class TaskScheduler {
   private tasks: ScheduledTask[] = [];
   private isRunning = false;
 
-  /**
-   * Schedule a task for future execution
-   */
+  listScheduledTasks(): ScheduledTask[] {
+    return [...this.tasks];
+  }
+
   schedule(task: Omit<ScheduledTask, 'id'>): string {
-    const id = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const scheduledTask: ScheduledTask = {
-      id,
-      ...task
-    };
+    const id = `task_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    const scheduledTask: ScheduledTask = { id, ...task };
 
     this.tasks.push(scheduledTask);
     this.tasks.sort((a, b) => a.scheduledFor.getTime() - b.scheduledFor.getTime());
 
     console.log(`[Scheduler] Scheduled task ${id} for ${scheduledTask.scheduledFor.toISOString()}`);
+
+    if (!this.isRunning) {
+      this.start();
+    }
+
     return id;
   }
 
-  /**
-   * Cancel a scheduled task
-   */
   cancel(taskId: string): boolean {
     const index = this.tasks.findIndex(task => task.id === taskId);
-    if (index > -1) {
-      this.tasks.splice(index, 1);
-      console.log(`[Scheduler] Cancelled task ${taskId}`);
-      return true;
-    }
-    return false;
+    if (index === -1) return false;
+
+    this.tasks.splice(index, 1);
+    console.log(`[Scheduler] Cancelled task ${taskId}`);
+    return true;
   }
 
-  /**
-   * Start the scheduler
-   */
   start() {
     if (this.isRunning) return;
-
     this.isRunning = true;
     console.log('[Scheduler] Starting task scheduler');
-    this.process();
+    void this.process();
   }
 
-  /**
-   * Stop the scheduler
-   */
   stop() {
+    if (!this.isRunning) return;
     this.isRunning = false;
     console.log('[Scheduler] Stopping task scheduler');
   }
 
-  /**
-   * Main processing loop
-   */
+  getTasksCount(): number {
+    return this.tasks.length;
+  }
+
+  getNextTaskTime(): Date | null {
+    return this.tasks.length > 0 ? this.tasks[0].scheduledFor : null;
+  }
+
   private async process() {
     while (this.isRunning) {
       try {
@@ -82,31 +80,23 @@ class TaskScheduler {
         if (readyTasks.length > 0) {
           console.log(`[Scheduler] Processing ${readyTasks.length} ready tasks`);
 
-          // Remove ready tasks from queue
           this.tasks = this.tasks.filter(task => task.scheduledFor > now);
 
-          // Process tasks in parallel with limited concurrency
-          const concurrencyLimit = 3;
-          for (let i = 0; i < readyTasks.length; i += concurrencyLimit) {
-            const batch = readyTasks.slice(i, i + concurrencyLimit);
-            await Promise.allSettled(
-              batch.map(task => this.executeTask(task))
-            );
+          const concurrency = 3;
+          for (let i = 0; i < readyTasks.length; i += concurrency) {
+            const batch = readyTasks.slice(i, i + concurrency);
+            await Promise.allSettled(batch.map(task => this.executeTask(task)));
           }
         }
 
-        // Sleep for 30 seconds before next check
         await this.sleep(30000);
       } catch (error) {
         console.error('[Scheduler] Error in processing loop:', error);
-        await this.sleep(60000); // Wait longer on error
+        await this.sleep(60000);
       }
     }
   }
 
-  /**
-   * Execute a single task
-   */
   private async executeTask(task: ScheduledTask) {
     try {
       console.log(`[Scheduler] Executing task ${task.id} (${task.type})`);
@@ -122,144 +112,116 @@ class TaskScheduler {
           await this.handleCleanup(task);
           break;
         default:
-          console.warn(`[Scheduler] Unknown task type: ${task.type}`);
+          console.warn(`[Scheduler] Unknown task type ${task.type}`);
       }
     } catch (error) {
       console.error(`[Scheduler] Error executing task ${task.id}:`, error);
-      logError(error, { taskId: task.id, taskType: task.type });
+      if (error instanceof Error) {
+        logError(error as any, { taskId: task.id, taskType: task.type });
+      } else {
+        logError(
+          {
+            name: 'UnknownError',
+            message: `Unknown error executing task ${task.id}`,
+            statusCode: 500
+          },
+          { taskId: task.id, taskType: task.type }
+        );
+      }
     }
   }
 
-  /**
-   * Handle automatic re-run task
-   */
   private async handleAutoRerun(task: ScheduledTask) {
-    if (!task.projectId || !task.data?.userId) return;
+    const projectId = task.projectId;
+    const userId = typeof task.data?.userId === 'string' ? task.data.userId : undefined;
 
-    // Check user has enough credits
-    const creditUsage = await getCreditUsage(task.data.userId);
-    if (creditUsage.used >= creditUsage.limit) {
-      console.log(`[Scheduler] User ${task.data.userId} has insufficient credits for auto-rerun`);
+    if (!projectId || !userId) {
+      console.warn(`[Scheduler] AUTO_RERUN missing projectId or userId (task ${task.id})`);
       return;
     }
 
-    // Get the latest run for this project
+    const creditUsage = await getCreditUsage(userId);
+    if (creditUsage.used >= creditUsage.limit) {
+      console.log(`[Scheduler] User ${userId} has insufficient credits for auto-rerun`);
+      return;
+    }
+
     const latestRun = await prisma.run.findFirst({
-      where: { projectId: task.projectId },
+      where: { projectId },
       orderBy: { createdAt: 'desc' },
       include: { project: true }
     });
 
-    if (!latestRun) return;
-
-    // Don't re-run if the latest run is less than 7 days old
-    const daysSinceLastRun = (Date.now() - latestRun.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-    if (daysSinceLastRun < 7) {
-      console.log(`[Scheduler] Skipping auto-rerun for project ${task.projectId} - last run was ${daysSinceLastRun.toFixed(1)} days ago`);
+    if (!latestRun) {
+      console.log(`[Scheduler] No previous runs for project ${projectId}`);
       return;
     }
 
-    // Create new run
+    const daysSinceLastRun = (Date.now() - latestRun.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+    if (daysSinceLastRun < 7) {
+      console.log(
+        `[Scheduler] Skipping auto-rerun for project ${projectId} - last run was ${daysSinceLastRun.toFixed(1)} days ago`
+      );
+      return;
+    }
+
     const newRun = await prisma.run.create({
       data: {
-        projectId: task.projectId,
+        projectId,
         status: 'PENDING'
       }
     });
 
-    // Consume credit
-    const { consume } = await import('@/lib/credits');
-    await consume(task.data.userId, 1);
+    await consume(userId, 1);
 
-    // Start orchestration
     orchestrateRun(newRun.id).catch(async (err: any) => {
-      console.error(`[Scheduler] Auto-rerun failed for project ${task.projectId}:`, err);
+      console.error(`[Scheduler] Auto-rerun failed for project ${projectId}:`, err);
       await prisma.run.update({
         where: { id: newRun.id },
         data: {
           status: 'ERROR',
-          lastNote: `Auto-rerun failed: ${err.message}`
+          lastNote: `Auto-rerun failed: ${err?.message ?? 'Unknown error'}`
         }
       });
     });
 
-    console.log(`[Scheduler] Started auto-rerun for project ${task.projectId} (run ${newRun.id})`);
+    console.log(`[Scheduler] Started auto-rerun for project ${projectId} (run ${newRun.id})`);
   }
 
-  /**
-   * Handle email notification task
-   */
   private async handleEmailNotification(task: ScheduledTask) {
-    // TODO: Implement email notification system
-    console.log(`[Scheduler] Email notification task ${task.id} - Not implemented yet`);
+    console.log(`[Scheduler] Email notification task ${task.id} - not implemented`);
   }
 
-  /**
-   * Handle cleanup task
-   */
-  private async handleCleanup(task: ScheduledTask) {
-    // Clean up old logs, temporary data, etc.
+  private async handleCleanup(_: ScheduledTask) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    // Clean up old run logs
     const deletedLogs = await prisma.runLog.deleteMany({
       where: {
-        run: {
-          createdAt: { lt: thirtyDaysAgo }
-        }
+        run: { createdAt: { lt: thirtyDaysAgo } }
       }
     });
 
     console.log(`[Scheduler] Cleaned up ${deletedLogs.count} old run logs`);
   }
 
-  /**
-   * Sleep utility
-   */
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
-
-  /**
-   * Get scheduled tasks count
-   */
-  getTasksCount(): number {
-    return this.tasks.length;
-  }
-
-  /**
-   * Get next task time
-   */
-  getNextTaskTime(): Date | null {
-    return this.tasks.length > 0 ? this.tasks[0].scheduledFor : null;
-  }
 }
 
-// Global scheduler instance
 export const scheduler = new TaskScheduler();
 
-/**
- * Schedule automatic re-runs for projects
- */
 export async function scheduleAutoReruns() {
-  // Get projects that should be auto-monitored
   const projects = await prisma.project.findMany({
-    where: {
-      // Add criteria for auto-monitoring here
-      // For now, we'll get all projects
-    },
     include: {
-      user: {
-        select: { id: true }
-      }
+      user: { select: { id: true } }
     }
   });
 
   const now = new Date();
 
   for (const project of projects) {
-    // Schedule first re-run for tomorrow at 9 AM
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
     tomorrow.setHours(9, 0, 0, 0);
@@ -269,24 +231,19 @@ export async function scheduleAutoReruns() {
       projectId: project.id,
       scheduledFor: tomorrow,
       priority: 1,
-      data: {
-        userId: project.user.id
-      }
+      data: { userId: project.user?.id ?? null }
     });
 
-    // Schedule weekly re-runs
     for (let i = 1; i <= 4; i++) {
       const nextRun = new Date(tomorrow);
-      nextRun.setDate(nextRun.getDate() + (i * 7));
+      nextRun.setDate(nextRun.getDate() + i * 7);
 
       scheduler.schedule({
         type: 'AUTO_RERUN',
         projectId: project.id,
         scheduledFor: nextRun,
         priority: 1,
-        data: {
-          userId: project.user.id
-        }
+        data: { userId: project.user?.id ?? null }
       });
     }
   }
@@ -294,10 +251,7 @@ export async function scheduleAutoReruns() {
   console.log(`[Scheduler] Scheduled auto-reruns for ${projects.length} projects`);
 }
 
-/**
- * Schedule project for monitoring
- */
-export async function scheduleProjectMonitoring(projectId: string, userId: string) {
+export function scheduleProjectMonitoring(projectId: string, userId: string) {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(9, 0, 0, 0);
@@ -311,18 +265,12 @@ export async function scheduleProjectMonitoring(projectId: string, userId: strin
   });
 }
 
-/**
- * Cancel project monitoring
- */
-export function cancelProjectMonitoring(projectId: string) {
-  // Find and cancel all scheduled auto-reruns for this project
-  const tasksToRemove = scheduler.tasks.filter(
-    task => task.type === 'AUTO_RERUN' && task.projectId === projectId
-  );
+export function cancelProjectMonitoring(projectId: string): number {
+  const tasks = scheduler
+    .listScheduledTasks()
+    .filter(task => task.type === 'AUTO_RERUN' && task.projectId === projectId);
 
-  tasksToRemove.forEach(task => {
-    scheduler.cancel(task.id);
-  });
+  tasks.forEach(task => scheduler.cancel(task.id));
 
-  return tasksToRemove.length;
+  return tasks.length;
 }

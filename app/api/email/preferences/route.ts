@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     if (error instanceof HttpError) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.statusCode }
+        { status: error.status }
       );
     }
     return NextResponse.json(
@@ -88,7 +88,7 @@ export async function PUT(request: NextRequest) {
     if (error instanceof HttpError) {
       return NextResponse.json(
         { error: error.message },
-        { status: error.statusCode }
+        { status: error.status }
       );
     }
     return NextResponse.json(
