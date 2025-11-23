@@ -1,5 +1,6 @@
 import { prisma } from './prisma';
 import { canonicalFeatureName, normalizeFeature } from './normalize';
+import type { PrismaClient, Prisma } from '@/app/generated/prisma/client';
 
 type FeatureOrigin = 'USER' | 'COMPETITOR' | 'SYSTEM';
 
@@ -8,14 +9,21 @@ interface EnsureFeatureOptions {
   category?: string | null;
 }
 
+type PrismaTransactionClient = Omit<
+  PrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
+
 const DEFAULT_ORIGIN: FeatureOrigin = 'COMPETITOR';
 
 export async function ensureFeatureDefinitions(
   names: string[],
-  options: EnsureFeatureOptions = {}
+  options: EnsureFeatureOptions = {},
+  tx?: PrismaTransactionClient
 ) {
   const origin = options.origin ?? DEFAULT_ORIGIN;
   const category = options.category ?? null;
+  const client = tx || prisma;
 
   const cleaned = names
     .map((name) => (typeof name === 'string' ? name.trim() : ''))
@@ -32,7 +40,7 @@ export async function ensureFeatureDefinitions(
     new Set(normalizedEntries.map((entry) => entry.normalized))
   );
 
-  const existing = await prisma.featureDefinition.findMany({
+  const existing = await client.featureDefinition.findMany({
     where: { normalized: { in: normalizedSet } },
   });
   const byNormalized = new Map(existing.map((def) => [def.normalized, def]));
@@ -41,7 +49,7 @@ export async function ensureFeatureDefinitions(
   for (const entry of normalizedEntries) {
     if (byNormalized.has(entry.normalized)) continue;
 
-    const created = await prisma.featureDefinition.create({
+    const created = await client.featureDefinition.create({
       data: {
         name: entry.canonical || entry.original,
         normalized: entry.normalized,
@@ -94,7 +102,7 @@ export async function ensureFeatureDefinitions(
   }
 
   for (const [id, { aliases }] of aliasUpdates) {
-    await prisma.featureDefinition.update({
+    await client.featureDefinition.update({
       where: { id },
       data: { aliases: { set: aliases } },
     });
@@ -105,12 +113,14 @@ export async function ensureFeatureDefinitions(
 
 export async function ensureProjectFeatures(
   projectId: string,
-  names: string[]
+  names: string[],
+  tx?: PrismaTransactionClient
 ) {
-  const definitions = await ensureFeatureDefinitions(names, { origin: 'USER' });
+  const client = tx || prisma;
+  const definitions = await ensureFeatureDefinitions(names, { origin: 'USER' }, tx);
   if (definitions.length === 0) return [];
 
-  await prisma.projectFeature.createMany({
+  await client.projectFeature.createMany({
     data: definitions.map((def) => ({
       projectId,
       featureDefinitionId: def.id,

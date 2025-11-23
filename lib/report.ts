@@ -18,7 +18,7 @@ function cite(ids: string[], evidences: (Evidence & { source: Source })[]) {
 }
 
 export function generateMarkdown({
-    headline, profile, competitors, pricing, findings, capabilities, compliance, integrations
+    headline, profile, competitors, pricing, findings, capabilities, compliance, integrations, executiveSummary
   }: {
     headline: string;
     profile: VerticalProfile;
@@ -26,6 +26,7 @@ export function generateMarkdown({
     capabilities: { category: string; normalized: string }[];
     compliance: { framework: string; status?: string | null }[];
     integrations: { name: string; category?: string | null }[];
+    executiveSummary?: string | null;
   }) {
     const lines: string[] = [`# ${headline}`, ``];
   
@@ -36,14 +37,26 @@ export function generateMarkdown({
       return `${text}${citeTokens}`;
     };
   
+    // Helper functions
+    function groupBy<T, K extends string>(arr: T[], fn: (t:T)=>K): Record<K, T[]> {
+      return arr.reduce((acc:any, x:T) => { const k = fn(x); (acc[k] = acc[k] || []).push(x); return acc; }, {});
+    }
+    function fmtMoney(n?: number | null, suffix = '') {
+      return n != null ? `$${n}${suffix}` : '';
+    }
+  
     // Executive Summary - Enhanced
     if (profile.sections.find(s => s.id === 'exec')?.enabled) {
       lines.push('## Executive Summary', '');
       
-      // Market overview
-      const competitorCount = competitors?.length || 0;
-      const capabilityCount = capabilities?.length || 0;
-      lines.push(`This analysis identified **${competitorCount} competitors** and **${capabilityCount} distinct capabilities** across the competitive landscape.`, '');
+      // Use AI-generated executive summary if available, otherwise generate one
+      if (executiveSummary) {
+        lines.push(executiveSummary, '');
+      } else {
+        // Market overview
+        const competitorCount = competitors?.length || 0;
+        const capabilityCount = capabilities?.length || 0;
+        lines.push(`This analysis identified **${competitorCount} competitors** and **${capabilityCount} distinct capabilities** across the competitive landscape.`, '');
       
       // Key findings summary
       const gaps = findings.filter((f:any) => f.kind === 'GAP');
@@ -69,6 +82,7 @@ export function generateMarkdown({
       if (common.length > 0) {
         lines.push('### Common Features Across Market', '');
         lines.push(`The analysis found ${common.length} capabilities that appear across multiple competitors, indicating market standards.`, '');
+      }
       }
     }
   
@@ -418,11 +432,4 @@ export function generateMarkdown({
     }
   
     return lines.join('\n');
-  }
-  
-  function groupBy<T, K extends string>(arr: T[], fn: (t:T)=>K): Record<K, T[]> {
-    return arr.reduce((acc:any, x:T) => { const k = fn(x); (acc[k] = acc[k] || []).push(x); return acc; }, {});
-  }
-  function fmtMoney(n?: number | null, suffix = '') {
-    return n != null ? `$${n}${suffix}` : '';
   }

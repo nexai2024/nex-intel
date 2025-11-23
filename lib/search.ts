@@ -18,6 +18,7 @@ export type SearchResult = {
   class TavilySearch implements SearchProvider {
     constructor(private apiKey: string) {}
     async search(query: string, opts: { num?: number; freshnessDays?: number } = {}): Promise<SearchResult[]> {
+      console.log('TavilySearch', query, opts);
       try {
         const res = await fetch('https://api.tavily.com/search', {
           method: 'POST',
@@ -42,7 +43,7 @@ export type SearchResult = {
         
         const data = await res.json();
         const results = Array.isArray(data.results) ? data.results : [];
-        
+        console.log('TavilySearch results', results);
         // Filter by freshness if specified
         let filtered = results;
         if (opts.freshnessDays) {

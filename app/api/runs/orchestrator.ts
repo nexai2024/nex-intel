@@ -8,6 +8,7 @@ import { buildQueries } from '@/lib/queries';
 import { makeSearch } from '@/lib/search';
 import { extractCapabilities } from '@/lib/extract/capabilities';
 import { extractPricingV2 } from '@/lib/extract/pricing_v2';
+import { extractStructuredDataFromContent, generateSyntheticInsights, standardizeAndFilterCapabilities } from '@/lib/ai';
 import { generateMarkdown } from '@/lib/report';
 import { detectSourceChanges, storeChangeDetection, checkForAlerts } from '@/lib/monitoring';
 import { sendReportCompletionNotification } from '@/lib/notifications';
@@ -264,7 +265,11 @@ export async function orchestrateRun(runId: string) {
 
     await setStatus(runId, 'EXTRACTING', `Extracting capabilities, integrations, compliance, pricing…`);
 
-    // 3) Entity extraction
+    // Determine the Vertical Profile for Standardization
+    const verticalProfile = inferVertical({ industry: run.project.industry, subIndustry: run.project.subIndustry });
+    await appendLog(runId, `Using Vertical Profile: ${verticalProfile.key}`);
+
+    // 3) Entity extraction - AI-Powered (with regex fallback)
     const capWrites: { runId: string; category: string; name: string; normalized: string }[] = [];
     const featureCandidates: {
       runId: string;
@@ -278,7 +283,7 @@ export async function orchestrateRun(runId: string) {
     const intWrites: { runId: string; name: string; vendor?: string | null; category?: string | null; url?: string | null }[] = [];
     const priceWrites: { runId: string; competitorId: string; planName: string; priceMonthly?: number | null; priceAnnual?: number | null; transactionFee?: number | null; currency?: string | null }[] = [];
 
-    // crude vendor detector for integrations
+    // crude vendor detector for integrations (fallback)
     const vendorRE = /(Shopify|Salesforce|HubSpot|Zapier|Stripe|Segment|Snowflake|Slack|Google Analytics|Datadog|Amplitude|Notion|Zendesk|PayPal|Adyen|Paddle|Klaviyo|Marketo|Intercom)/gi;
 
     // Map competitor by brand name guess
@@ -287,6 +292,10 @@ export async function orchestrateRun(runId: string) {
     for (const comp of seededCompetitors) {
       competitorByName.set(comp.name, comp.id);
     }
+
+    // Check if AI extraction is enabled
+    const aiSettings = await loadSettings();
+    const useAIExtraction = aiSettings.aiProvider && (aiSettings.openaiApiKey || aiSettings.geminiApiKey || aiSettings.anthropicApiKey);
 
     for (const s of fetched) {
       const text = s.content;
@@ -315,54 +324,162 @@ export async function orchestrateRun(runId: string) {
         }
       }
 
-      // Capabilities
-      for (const c of extractCapabilities(text)) {
-        capWrites.push({ runId, category: c.category, name: c.name, normalized: c.normalized });
-        featureCandidates.push({
-          runId,
-          name: c.name,
-          normalized: c.normalized,
-          sourceId: s.id,
-          competitorId: compId,
-          description: extractFeatureDescription(text, c.mention) ?? `Mentioned under ${c.category}`,
-        });
-      }
-
-      // Integrations
-      const mentions = text.match(vendorRE);
-      if (mentions) {
-        for (const m of uniq(mentions)) {
-          intWrites.push({ runId, name: m, vendor: m, category: inferIntegrationCategory(m) ?? null, url: s.url });
-        }
-      }
-
-      // Compliance
-      const complianceHits = text.match(/\b(SOC\s*2|HIPAA|GDPR|PCI[-\s]?DSS|ISO\s*27001|BAA)\b/gi);
-      if (complianceHits) {
-        for (const f of uniq(complianceHits)) {
-          compWrites.push({ runId, framework: f.toUpperCase().replace(/\s+/g, ' '), status: 'Claims', notes: `Mentioned at ${shortUrl(s.url)}` });
-        }
-      }
-
-      // Pricing extraction if page looks like pricing
-      if (looksLikePricingPage(s.title, text)) {
+      // Try AI-Powered Extraction first, fallback to regex
+      let aiExtractionSuccess = false;
+      if (useAIExtraction && brand && compId) {
         try {
-          const rows = extractPricingV2(text);
-          if (compId) {
-            for (const r of rows) {
+          const aiData = await extractStructuredDataFromContent(
+            brand,
+            text,
+            { industry: run.project.industry, keywords: projectInput?.keywords || [] }
+          );
+
+          if (aiData) {
+            aiExtractionSuccess = true;
+            await appendLog(runId, `AI extraction succeeded for ${brand} from ${shortUrl(s.url)}`);
+
+            // Phase III: AI-Powered Standardization & Filtering
+            let normalizedCapabilities: any[] = [];
+            if (aiData.capabilities.length > 0) {
+              try {
+                const standardized = await standardizeAndFilterCapabilities(
+                  aiData.capabilities,
+                  verticalProfile
+                );
+                normalizedCapabilities = standardized;
+                await appendLog(runId, `Standardized ${aiData.capabilities.length} capabilities to ${standardized.length} relevant capabilities for ${brand}`);
+              } catch (err: any) {
+                console.error(`[Orchestrator] Standardization failed for ${brand}:`, err);
+                await appendLog(runId, `Standardization failed for ${brand}: ${err?.message ?? String(err)}`);
+                // Fallback: use capabilities as-is without standardization
+                normalizedCapabilities = aiData.capabilities.map(cap => ({
+                  normalizedName: cap.name,
+                  category: cap.category,
+                  sourceName: cap.name,
+                  description: cap.description,
+                }));
+              }
+            }
+
+            // Process standardized and filtered capabilities
+            for (const cap of normalizedCapabilities) {
+              const normalized = normalizeFeature(cap.normalizedName || cap.name);
+              // Use normalizedName as the canonical name, but keep sourceName for reference
+              capWrites.push({ 
+                runId, 
+                category: cap.category, 
+                name: cap.normalizedName || cap.sourceName, // Use canonical name
+                normalized 
+              });
+              featureCandidates.push({
+                runId,
+                name: cap.normalizedName || cap.sourceName, // Use canonical name
+                normalized,
+                sourceId: s.id,
+                competitorId: compId,
+                description: cap.description || `Mentioned under ${cap.category}`,
+              });
+            }
+
+            // Process AI-extracted pricing
+            for (const plan of aiData.pricingPlans) {
               priceWrites.push({
                 runId,
                 competitorId: compId,
-                planName: r.planName,
-                priceMonthly: r.priceMonthly ?? null,
-                priceAnnual: r.priceAnnual ?? null,
-                transactionFee: r.transactionFee ?? null,
-                currency: r.currency ?? 'USD'
+                planName: plan.planName,
+                priceMonthly: plan.priceMonthly ?? null,
+                priceAnnual: plan.priceAnnual ?? null,
+                transactionFee: plan.transactionFee ?? null,
+                currency: plan.currency || 'USD',
+              });
+            }
+
+            // Process AI-extracted compliance
+            for (const item of aiData.complianceItems) {
+              compWrites.push({
+                runId,
+                framework: item.framework.toUpperCase(),
+                status: item.status || 'Claims',
+                notes: item.notes || `Extracted from ${shortUrl(s.url)}`,
+              });
+            }
+
+            // Process AI-extracted integrations
+            for (const int of aiData.integrations) {
+              intWrites.push({
+                runId,
+                name: int.name,
+                vendor: int.vendor,
+                category: int.category,
+                url: int.url || s.url,
+              });
+            }
+
+            // Update source with AI summary if available
+            if (aiData.summary) {
+              await prisma.source.update({
+                where: { id: s.id },
+                data: { meta: { aiSummary: aiData.summary } },
               });
             }
           }
         } catch (err: any) {
-          await appendLog(runId, `Pricing parse failed ${s.url}: ${err?.message ?? String(err)}`);
+          console.error(`[Orchestrator] AI extraction failed for ${brand} (${s.url}):`, err);
+          await appendLog(runId, `AI extraction failed for ${shortUrl(s.url)}: ${err?.message ?? String(err)}`);
+        }
+      }
+
+      // Fallback to regex-based extraction if AI failed or not configured
+      if (!aiExtractionSuccess) {
+        // Capabilities (regex fallback)
+        for (const c of extractCapabilities(text)) {
+          capWrites.push({ runId, category: c.category, name: c.name, normalized: c.normalized });
+          featureCandidates.push({
+            runId,
+            name: c.name,
+            normalized: c.normalized,
+            sourceId: s.id,
+            competitorId: compId,
+            description: extractFeatureDescription(text, c.mention) ?? `Mentioned under ${c.category}`,
+          });
+        }
+
+        // Integrations (regex fallback)
+        const mentions = text.match(vendorRE);
+        if (mentions) {
+          for (const m of uniq(mentions)) {
+            intWrites.push({ runId, name: m, vendor: m, category: inferIntegrationCategory(m) ?? null, url: s.url });
+          }
+        }
+
+        // Compliance (regex fallback)
+        const complianceHits = text.match(/\b(SOC\s*2|HIPAA|GDPR|PCI[-\s]?DSS|ISO\s*27001|BAA)\b/gi);
+        if (complianceHits) {
+          for (const f of uniq(complianceHits)) {
+            compWrites.push({ runId, framework: f.toUpperCase().replace(/\s+/g, ' '), status: 'Claims', notes: `Mentioned at ${shortUrl(s.url)}` });
+          }
+        }
+
+        // Pricing extraction if page looks like pricing (regex fallback)
+        if (looksLikePricingPage(s.title, text)) {
+          try {
+            const rows = extractPricingV2(text);
+            if (compId) {
+              for (const r of rows) {
+                priceWrites.push({
+                  runId,
+                  competitorId: compId,
+                  planName: r.planName,
+                  priceMonthly: r.priceMonthly ?? null,
+                  priceAnnual: r.priceAnnual ?? null,
+                  transactionFee: r.transactionFee ?? null,
+                  currency: r.currency ?? 'USD'
+                });
+              }
+            }
+          } catch (err: any) {
+            await appendLog(runId, `Pricing parse failed ${s.url}: ${err?.message ?? String(err)}`);
+          }
         }
       }
     }
@@ -465,7 +582,7 @@ export async function orchestrateRun(runId: string) {
     const rare = capTotal > 0 ? Object.entries(capByKey).filter(([, arr]) => arr.length === 1).slice(0, 10) : [];
 
     const findings: {
-      kind: 'GAP' | 'DIFFERENTIATOR' | 'COMMON_FEATURE' | 'RISK' | 'INSIGHT';
+      kind: 'GAP' | 'DIFFERENTIATOR' | 'COMMON_FEATURE' | 'RISK' | 'RECOMMENDATION' | 'INSIGHT';
       text: string;
       confidence: number;
       citations: string[];
@@ -710,6 +827,86 @@ export async function orchestrateRun(runId: string) {
       });
     }
 
+    // AI-Generated Synthesis: Generate RISK and RECOMMENDATION findings
+    let aiExecutiveSummary: string | null = null;
+    const useAISynthesis = aiSettings.aiProvider && (aiSettings.openaiApiKey || aiSettings.geminiApiKey || aiSettings.anthropicApiKey);
+    if (useAISynthesis) {
+      try {
+        await appendLog(runId, 'Generating AI insights (risks and recommendations)…');
+        const aiInsights = await generateSyntheticInsights(
+          {
+            project: {
+              name: run.project.name,
+              industry: run.project.industry,
+              description: run.project.description,
+              targetSegments: run.project.targetSegments || [],
+            },
+            competitors: allCompetitors.map(c => ({
+              name: c.name,
+              capabilities: allFeatures.filter(f => f.competitorId === c.id).map(f => ({
+                name: f.name,
+                category: allCaps.find(cap => cap.normalized === f.normalized)?.category || 'Other',
+                description: f.description || null,
+              })),
+              pricingPoints: allPricing.filter(p => p.competitorId === c.id).map(p => ({
+                planName: p.planName,
+                priceMonthly: p.priceMonthly,
+                priceAnnual: p.priceAnnual,
+              })),
+            })),
+            capabilities: allCaps.map(c => ({
+              name: c.name,
+              category: c.category,
+              normalized: c.normalized,
+            })),
+            pricingPoints: allPricing.map(p => ({
+              planName: p.planName,
+              priceMonthly: p.priceMonthly,
+              competitorId: p.competitorId,
+            })),
+            findings: findings.map(f => ({
+              kind: f.kind,
+              text: f.text,
+            })),
+          },
+          projectInput || undefined
+        );
+
+        if (aiInsights) {
+          // Store executive summary for report generation
+          if (aiInsights.executiveSummary) {
+            aiExecutiveSummary = aiInsights.executiveSummary;
+          }
+
+          // Add AI-generated RISK findings
+          for (const risk of aiInsights.risks) {
+            findings.push({
+              kind: 'RISK',
+              text: risk.text,
+              confidence: risk.confidence,
+              citations: risk.citations,
+            });
+          }
+
+          // Add AI-generated RECOMMENDATION findings
+          for (const rec of aiInsights.recommendations) {
+            findings.push({
+              kind: 'RECOMMENDATION',
+              text: rec.text,
+              confidence: rec.confidence,
+              citations: rec.citations,
+            });
+          }
+
+          await appendLog(runId, `Generated ${aiInsights.risks.length} risks and ${aiInsights.recommendations.length} recommendations from AI`);
+        }
+      } catch (err: any) {
+        console.error(`[Orchestrator] AI synthesis failed:`, err);
+        await appendLog(runId, `AI synthesis failed: ${err?.message ?? String(err)}`);
+        // Continue without AI insights if synthesis fails
+      }
+    }
+
     await prisma.$transaction(findings.map((f) => prisma.finding.create({ data: { runId, ...f } })));
 
     // 5) Report generation
@@ -728,8 +925,9 @@ export async function orchestrateRun(runId: string) {
       findings,
       capabilities: allCaps,
       compliance,
-      integrations
-    });
+      integrations,
+      executiveSummary: aiExecutiveSummary || null
+    }) || '';
 
     const report = await prisma.report.create({
       data: {
